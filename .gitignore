@@ -1,0 +1,5 @@
+# local env files
+.env.local
+.env.*.local
+apps/web/.env.local
+apps/web/.env.*.local

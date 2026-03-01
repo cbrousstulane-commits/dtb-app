@@ -1,4 +1,4 @@
-﻿env:
+env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: "AIzaSyAwNnTh54e8s_kJ3oESShpsTq5_QY1j_7I"
     availability: [BUILD, RUNTIME]
@@ -17,3 +17,8 @@
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: "1:1076578309430:web:6a35a23100fa9884758f97"
     availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_ADMIN_EMAILS
+    value: "cbrousstulane@gmail.com"
+    availability: [BUILD, RUNTIME]
+

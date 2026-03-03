@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Enforced via Firebase Auth custom claim: { admin: true }
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    // Default deny everything
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Admin panel namespace (v0)
+    match /admin/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Optional: user profile docs
+    match /users/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid);
+    }
+  }
+}

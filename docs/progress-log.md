@@ -35,3 +35,4 @@
 \- Initialize Firebase (Firestore + Functions + Hosting) in this repo and connect to a new Firebase project.
 
 - 2026-03-02: Adopted VS Code workflow. Added `docs/dev-workflow.md`, `.vscode/*` helpers, and `.editorconfig`. Policy: run `npm run build` before push; update roadmap/progress-log at end of each chat.
+  -Dev tooling: VS Code CLI (code) is now available from Command Prompt; can open repo/files via code . and code <path>

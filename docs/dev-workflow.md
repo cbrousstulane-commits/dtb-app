@@ -41,3 +41,4 @@ If production looks stale:
 ## Secrets / public repo rules
 - Never commit `.env.local` or other secret env files.
 - `NEXT_PUBLIC_*` Firebase web config values are okay to commit (they are public client config).
+- Editing: Use VS Code from CMD (code ., code docs\...). Notepad only as fallback.

@@ -80,3 +80,4 @@ Phase 2: Firebase initialization + basic deploy of web app.
 
 \- Captain assignment source: from WP booking form field vs set by admin in app?
 
+- Guardrails: Use VS Code for edits; require `npm run build` before every push; update `docs/dev-workflow.md` + progress log at end of each chat.

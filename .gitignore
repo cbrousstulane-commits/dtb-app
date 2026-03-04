@@ -3,3 +3,7 @@
 .env.*.local
 apps/web/.env.local
 apps/web/.env.*.local
+# Local secrets (never commit)
+secrets/
+*.service-account.json
+*serviceAccount*.json

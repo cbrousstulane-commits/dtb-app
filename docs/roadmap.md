@@ -1,83 +1,128 @@
-\# DTB App Roadmap
+# DTB Admin Panel Roadmap
 
+## Current State
+- Next.js App Router app deployed via Firebase App Hosting.
+- Google Auth working.
+- `/admin` route currently gated client-side (legacy) via `NEXT_PUBLIC_ADMIN_EMAILS` allowlist.
+- Firebase CLI connected to project `dtb-admin-panel`.
+- Firestore provisioned with rules deployed:
+  - Default deny
+  - `/admin/**` requires Auth custom claim `admin: true`
 
+---
 
-\## Vision
+## Milestone 1 — Lock down admin access (REAL security)
+### Goals
+- Enforce admin access server-side using Firestore Rules + Auth custom claims.
+- Remove any “security” logic based on `NEXT_PUBLIC_*` env vars.
 
-\- Ingest new WP Booking System bookings into Firebase as they are created.
+### Tasks
+- [ ] Create local secrets folder and download service account JSON (do not commit).
+  - Example path: `C:\Users\chris\secrets\dtb-admin-panel-sa.json`
+- [ ] Run bootstrap script to grant `admin: true` claim:
+  - `node apps/web/scripts/grant-admin.mjs`
+- [ ] Update `/admin` route UX gating:
+  - Replace allowlist (`NEXT_PUBLIC_ADMIN_EMAILS`) with claim check:
+    - `token.claims.admin === true`
+- [ ] Add explicit “Not authorized” UI for signed-in non-admin users.
+- [ ] Add a simple “Admin status” indicator (optional):
+  - shows email + `admin` true/false
 
-\- Captains log trip ops (fuel, engine hours, catch, cancellations).
+### Exit Criteria
+- Signed-in non-admin cannot read/write any `/admin/**` document (PERMISSION_DENIED).
+- Admin user can read/write `/admin/**`.
+- `/admin` page renders only for admin users (good UX), but rules remain the true enforcement.
 
-\- Reschedule workflow for cancelled trips.
+---
 
-\- Square invoices (deposit + final) created from app; auto-close when paid.
+## Milestone 2 — Define v0 data model (Firestore)
+### Goals
+- Establish stable collections + fields for initial admin functionality.
+- Keep everything under `/admin/**` initially to keep rules simple.
 
-\- Lodge bookings + all-inclusive purchases views.
+### v0 Collections (admin-only)
+- `/admin/config/app`
+- `/admin/boats/{boatId}`
+- `/admin/customers/{customerId}`
+- `/admin/trips/{tripId}`
+- `/admin/bookings/{bookingId}`
+- `/admin/payments/{paymentId}`
+- `/admin/maintenance/{maintenanceId}`
+- `/admin/auditLogs/{logId}`
 
-\- CSV exports (single booking, captain/date range, all activity/date range).
+### Data conventions
+- Every doc includes:
+  - `createdAt`, `updatedAt`
+- Reference related entities by ID:
+  - `boatId`, `customerId`, `tripId`, `bookingId`
+- Use explicit status enums (strings):
+  - bookings: `hold | deposit-paid | paid | canceled | refunded`
+  - trips: `planned | confirmed | completed | canceled`
 
+### Exit Criteria
+- `/admin/config/app` exists and can be read in the admin UI.
+- CRUD proof-of-life for at least one entity (boats or customers).
 
+---
 
-\## Stack / Constraints
+## Milestone 3 — Admin UI (CRUD + navigation)
+### Goals
+- Build basic admin navigation and pages.
+- Provide quick visibility into operational objects.
 
-\- Web: Next.js (apps/web)
+### Tasks
+- [ ] Add admin layout + nav:
+  - Boats, Customers, Trips, Bookings, Payments, Maintenance, Audit
+- [ ] Implement CRUD UI for:
+  - Boats
+  - Customers
+- [ ] Add list/search/filter (minimal):
+  - text search by name/email for customers
+  - active/inactive filter for boats
 
-\- Auth: Firebase Auth (Google login)
+### Exit Criteria
+- Admin can create/edit/delete boats and customers through UI.
+- Changes persist in Firestore and are blocked for non-admin.
 
-\- DB: Firestore
+---
 
-\- Backend: Cloud Functions
+## Milestone 4 — Bookings + payments integration hooks (v0)
+### Goals
+- Start capturing booking state and payments in a consistent schema.
+- Defer provider-specific sync until the schema is stable.
 
-\- Source: WordPress + WP Booking System
+### Tasks
+- [ ] Trip creation flow (minimal):
+  - date, boat, captain, trip type, depart/return, status
+- [ ] Booking creation flow:
+  - customer, trip, quoted price, deposit requirements, status
+- [ ] Payment records:
+  - provider, amount, providerRef, bookingId
 
-\- Payments: Square (single account/location)
+### Exit Criteria
+- Admin can record a booking and payments tied to it.
+- Audit log entries generated for create/update.
 
-\- Repo: https://github.com/cbrousstulane-commits/dtb-app
+---
 
+## Milestone 5 — Audit + accountability
+### Goals
+- Record all admin changes for debugging and accountability.
 
+### Tasks
+- [ ] Add `/admin/auditLogs` write helper:
+  - actorUid, action, entityPath, before/after, timestamp
+- [ ] Surface audit log in UI (read-only)
 
-\## Phases
+### Exit Criteria
+- All CRUD actions write an audit log entry.
+- Admin can view audit logs.
 
-1\. Repo + web scaffold ✅
+---
 
-2\. Firebase project init + local emulators + deploy pipeline
-
-3\. Auth + roles (admin/captain) + Firestore rules
-
-4\. Bookings ingestion endpoint + WP hook
-
-5\. Captain views + trip logging
-
-6\. Admin views + cancellations/reschedule queue
-
-7\. Square invoice create + Square webhook
-
-8\. Exports (CSV) + admin tools
-
-9\. Lodge + purchases
-
-
-
-\## Current Focus
-
-Phase 2: Firebase initialization + basic deploy of web app.
-
-
-
-\## Next 3 Tasks
-
-1\. Create Firebase project + initialize firebase.json, Firestore, Functions, Hosting.
-
-2\. Add Google Auth and a minimal login page in apps/web.
-
-3\. Create Firestore rules skeleton for captain/admin access control.
-
-
-
-\## Open Questions
-
-\- WP Booking System: confirm which add-ons are in use (Booking Manager?) and which fields are available on submission.
-
-\- Captain assignment source: from WP booking form field vs set by admin in app?
-
-- Guardrails: Use VS Code for edits; require `npm run build` before every push; update `docs/dev-workflow.md` + progress log at end of each chat.
+## Later (deliberately deferred)
+- Customer portal / tenant portal
+- Public booking flows
+- Payments provider sync (Square/ACH/etc.)
+- Role hierarchy (beyond single admin claim)
+- Server-side APIs (Functions/Next API routes) for sensitive operations

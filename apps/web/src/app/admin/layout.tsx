@@ -1,50 +1,60 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged, getIdTokenResult, User } from "firebase/auth";
 import { auth } from "../../lib/firebase/client";
 import { usePathname, useRouter } from "next/navigation";
+
+type GateStatus = "loading" | "ready";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [status, setStatus] = useState<"loading" | "ready">("loading");
-  const [email, setEmail] = useState<string | null>(null);
-
-  const allowedEmails = useMemo(() => {
-    return (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-  }, []);
+  const [status, setStatus] = useState<GateStatus>("loading");
+  const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setEmail(u?.email ?? null);
-      setStatus("ready");
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+
+      if (!u) {
+        setIsAdmin(false);
+        setStatus("ready");
+        return;
+      }
+
+      try {
+        // Force-refresh token so newly set custom claims show up after sign-out/in
+        const token = await getIdTokenResult(u, true);
+        setIsAdmin(token.claims.admin === true);
+      } catch (err) {
+        console.error("Admin gate: failed to read token claims", err);
+        setIsAdmin(false);
+      } finally {
+        setStatus("ready");
+      }
     });
+
     return () => unsub();
   }, []);
-
-  const isAllowed =
-    !!email && (allowedEmails.length === 0 || allowedEmails.includes(email.toLowerCase()));
 
   useEffect(() => {
     if (status !== "ready") return;
 
-    if (!email) {
+    if (!user) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
       return;
     }
 
-    if (!isAllowed) {
+    if (!isAdmin) {
       router.replace("/auth-test");
     }
-  }, [status, email, isAllowed, router, pathname]);
+  }, [status, user, isAdmin, router, pathname]);
 
-  if (status !== "ready") return <main style={{ padding: 24 }}>Loading…</main>;
-  if (!email || !isAllowed) return <main style={{ padding: 24 }}>Redirecting…</main>;
+  if (status !== "ready") return <main style={{ padding: 24 }}>Loading...</main>;
+  if (!user || !isAdmin) return <main style={{ padding: 24 }}>Redirecting...</main>;
 
   return <>{children}</>;
 }

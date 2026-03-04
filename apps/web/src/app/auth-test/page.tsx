@@ -1,30 +1,42 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged, signOut, getIdTokenResult, User } from "firebase/auth";
 import { auth } from "../../lib/firebase/client";
 import Link from "next/link";
 
+type Status = "loading" | "ready";
+
 export default function AuthTestPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready">("loading");
-
-  const allowedEmails = useMemo(() => {
-    return (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-  }, []);
-
-  const isAllowed =
-    !!user?.email &&
-    (allowedEmails.length === 0 || allowedEmails.includes(user.email.toLowerCase()));
+  const [status, setStatus] = useState<Status>("loading");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [claims, setClaims] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      setStatus("ready");
+
+      if (!u) {
+        setClaims(null);
+        setIsAdmin(false);
+        setStatus("ready");
+        return;
+      }
+
+      try {
+        const token = await getIdTokenResult(u, true);
+        setClaims(token.claims as Record<string, unknown>);
+        setIsAdmin(token.claims.admin === true);
+      } catch (err) {
+        console.error("Auth test: failed to read token claims", err);
+        setClaims(null);
+        setIsAdmin(false);
+      } finally {
+        setStatus("ready");
+      }
     });
+
     return () => unsub();
   }, []);
 
@@ -33,35 +45,52 @@ export default function AuthTestPage() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 720 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700 }}>Auth Test</h1>
+    <main style={{ padding: 24, maxWidth: 820 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700 }}>Auth / Admin Claim Test</h1>
 
       {status === "loading" ? (
-        <p style={{ marginTop: 12 }}>Checking auth…</p>
+        <p style={{ marginTop: 12 }}>Checking auth...</p>
       ) : user ? (
-        isAllowed ? (
-          <>
-            <p style={{ marginTop: 12 }}>
-              Signed in as <b>{user.displayName ?? "Unknown"}</b>
-            </p>
-            <p>Email: {user.email}</p>
-            <p>UID: {user.uid}</p>
+        <>
+          <p style={{ marginTop: 12 }}>
+            Signed in as <b>{user.displayName ?? "Unknown"}</b>
+          </p>
+          <p>Email: {user.email}</p>
+          <p>UID: {user.uid}</p>
+          <p style={{ marginTop: 12 }}>
+            Admin claim:{" "}
+            <b style={{ color: isAdmin ? "green" : "crimson" }}>{String(isAdmin)}</b>
+          </p>
 
-            <button onClick={handleSignOut} style={{ marginTop: 16, padding: "10px 14px" }}>
-              Sign out
-            </button>
-          </>
-        ) : (
-          <>
-            <p style={{ marginTop: 12, color: "crimson" }}>Access denied.</p>
-            <p style={{ marginTop: 8 }}>
-              Your account (<b>{user.email}</b>) is not on the admin allowlist.
+          <div style={{ marginTop: 12 }}>
+            <p style={{ marginBottom: 6, fontWeight: 600 }}>Token claims</p>
+            <pre
+              style={{
+                padding: 12,
+                background: "#111",
+                color: "#eee",
+                overflowX: "auto",
+                borderRadius: 8,
+              }}
+            >
+              {JSON.stringify(claims ?? {}, null, 2)}
+            </pre>
+          </div>
+
+          {!isAdmin && (
+            <p style={{ marginTop: 12, color: "crimson" }}>
+              Access denied: your ID token does not include <b>admin: true</b>. Run the
+              bootstrap script, then sign out/in and refresh this page.
             </p>
-            <button onClick={handleSignOut} style={{ marginTop: 16, padding: "10px 14px" }}>
+          )}
+
+          <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Link href="/admin">Go to /admin</Link>
+            <button onClick={handleSignOut} style={{ padding: "10px 14px" }}>
               Sign out
             </button>
-          </>
-        )
+          </div>
+        </>
       ) : (
         <>
           <p style={{ marginTop: 12 }}>Not signed in.</p>

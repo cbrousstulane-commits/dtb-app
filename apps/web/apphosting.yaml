@@ -17,6 +17,3 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: "1:1076578309430:web:6a35a23100fa9884758f97"
     availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_ADMIN_EMAILS
-    value: "cbrousstulane@gmail.com"
-    availability: [BUILD, RUNTIME]

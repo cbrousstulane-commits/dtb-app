@@ -2,20 +2,15 @@
 
 import Link from "next/link";
 
-export default function AdminHome() {
+export default function AdminHomePage() {
   return (
-    <main style={{ padding: 24, maxWidth: 900 }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700 }}>DTB Admin</h1>
-      <p style={{ marginTop: 8 }}>You’re authenticated. This is the admin landing page.</p>
+    <main style={{ padding: 24, maxWidth: 820 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700 }}>Admin</h1>
 
-      <ul style={{ marginTop: 16, lineHeight: 1.8 }}>
-        <li>
-          <Link href="/auth-test">Auth test</Link>
-        </li>
-        <li>
-          <Link href="/login">Login</Link>
-        </li>
-      </ul>
+      <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+        <Link href="/admin/config">Admin Config</Link>
+        <Link href="/auth-test">Auth / Admin Claim Test</Link>
+      </div>
     </main>
   );
 }

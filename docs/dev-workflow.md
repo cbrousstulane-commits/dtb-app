@@ -9,94 +9,182 @@
 - Login: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/login
 
 ## Local Repo Location (canonical)
-- Repo lives at: C:\dev\dtb-app
+- Repo lives at: `C:\dev\dtb-app`
 
 Open repo in VS Code:
+
     cd /d C:\dev\dtb-app
     code .
 
-## Project layout conventions (important)
-- Next.js App Router lives at: apps\web\src\app
-- Shared UI/components live at: apps\web\src\components
-- The @/… import alias resolves into: apps\web\src\…
-- Do NOT create a second router root at apps\web\app (causes duplicate routing + module resolution issues)
-- Do NOT use apps\web\components (use apps\web\src\components only)
+## Working directory rule
+- App code edits belong under `apps\web\src\...`
+- App commands run from `C:\dev\dtb-app\apps\web`
+- Git and docs commands usually run from `C:\dev\dtb-app`
+- Never create or edit a repo-root `src\` folder
 
-## Required checks before any push
-We do not push without both of these clean:
-    cd /d C:\dev\dtb-app\apps\web
-    npm run lint
-    npm run build
+## Project layout conventions
+- Next.js App Router lives at: `apps\web\src\app`
+- Shared UI/components live at: `apps\web\src\components`
+- Firebase/browser utilities live at: `apps\web\src\lib`
+- Scripts live at: `apps\web\scripts`
+- Docs live at: `docs`
+- The `@/…` import alias resolves into `apps\web\src\…`
+- Do NOT create a second router root at `apps\web\app`
+- Do NOT use `apps\web\components`
+- Use `apps\web\src\components` only
+
+## Repository map
+Repo root:
+- `C:\dev\dtb-app`
+
+Primary app package:
+- `apps\web`
+
+App source root:
+- `apps\web\src`
+
+App Router pages:
+- `apps\web\src\app`
+
+Shared UI/components:
+- `apps\web\src\components`
+
+Firebase/browser utilities:
+- `apps\web\src\lib`
+
+Scripts:
+- `apps\web\scripts`
+
+Docs:
+- `docs`
 
 ## Standard daily loop
+
 ### 1) Pull latest
+
     cd /d C:\dev\dtb-app
     git pull
 
 ### 2) Run locally
+
     cd /d C:\dev\dtb-app\apps\web
     npm run dev
-Local URL: http://localhost:3000
+
+Local URL:
+- `http://localhost:3000`
 
 ### 3) Edit in VS Code
+
     cd /d C:\dev\dtb-app
     code .
 
-### 4) Lint + build (required)
+### 4) Lint + build before any push
+
     cd /d C:\dev\dtb-app\apps\web
     npm run lint
     npm run build
 
 ### 5) Commit + push
+
     cd /d C:\dev\dtb-app
     git status
     git add -A
     git commit -m "Describe change"
     git push
 
-## Documentation discipline (every session)
-Every session ends with updates to:
-- docs/roadmap.md
-- docs/progress-log.md
+## Required checks before any push
+We do not push without both of these clean:
+
+    cd /d C:\dev\dtb-app\apps\web
+    npm run lint
+    npm run build
+
+## Documentation discipline
+Update these whenever product direction, file structure, or completed work changes:
+- `docs/roadmap.md`
+- `docs/progress-log.md`
 
 Quick open:
+
     cd /d C:\dev\dtb-app
     code docs\roadmap.md
     code docs\progress-log.md
 
-## Firebase: App Hosting vs Firebase CLI (important distinction)
+## Before creating new files
+1. Confirm current directory with `cd`
+2. Confirm target folder exists with `dir`
+3. Confirm the file belongs in `apps\web\src\...` and not repo-root `src\...`
+4. After file creation, run `git status` from repo root
 
+## After creating or moving files
+Run:
+
+    cd /d C:\dev\dtb-app
+    git status
+
+This is the fastest way to catch files accidentally created in the wrong directory.
+
+## Important for creating files and avoiding copy/paste errors
+Open files from the repo root using full repo-relative paths.
+
+Example:
+
+    cd /d C:\dev\dtb-app
+    code apps\web\src\app\admin\captains\page.tsx
+
+Run app validation from the app package directory:
+
+    cd /d C:\dev\dtb-app\apps\web
+    npm run build
+
+## Current build surface
+Current active product work is in:
+- `apps\web\src\app\admin`
+- `apps\web\src\components\admin`
+- `apps\web\src\lib`
+
+If new admin features are added, default to those locations unless there is a strong reason otherwise.
+
+## Firebase: App Hosting vs Firebase CLI
 ### App Hosting (GitHub-connected)
-- Builds/deploys the Next.js app automatically from GitHub pushes.
+- Builds and deploys the Next.js app automatically from GitHub pushes
 
 ### Firebase CLI (local machine)
-- Used for Firestore rules/indexes (and later Functions).
+- Used for Firestore rules/indexes
+- Later may also be used for Functions
+
 Repo contains:
-- .firebaserc
-- firebase.json
-- firestore.rules
-- firestore.indexes.json
+- `.firebaserc`
+- `firebase.json`
+- `firestore.rules`
+- `firestore.indexes.json`
 
 Deploy Firestore rules/indexes:
+
     cd /d C:\dev\dtb-app
     firebase use <your-project-alias-or-id>
     firebase deploy --only firestore:rules,firestore:indexes
 
 ## Security model (current)
-- Firestore rules are default deny.
-- /admin/** in Firestore is admin-only via Auth custom claim: admin: true.
-- Client-side gating is UX-only; Firestore rules are the real enforcement.
+- Firestore rules are default deny
+- `/admin/**` in Firestore is admin-only via Auth custom claim `admin: true`
+- Client-side gating is UX-only
+- Firestore rules are the real enforcement
 
 ## Admin claims bootstrap (one-time, local)
-We use a local Node script to grant admin: true via Firebase Admin SDK.
+We use a local Node script to grant `admin: true` via Firebase Admin SDK.
 
-- Script: apps\web\scripts\grant-admin.mjs
-- firebase-admin is installed in apps\web
+Script:
+- `apps\web\scripts\grant-admin.mjs`
 
-Service account JSON must be stored outside the repo (DO NOT COMMIT), e.g.:
-- C:\Users\chris\secrets\dtb-admin-panel-sa.json
+Note:
+- `firebase-admin` is installed in `apps\web`
+
+Service account JSON must be stored outside the repo and never committed, for example:
+- `C:\Users\chris\secrets\dtb-admin-panel-sa.json`
 
 Run:
+
     cd /d C:\dev\dtb-app
     set "GOOGLE_APPLICATION_CREDENTIALS=C:\Users\chris\secrets\dtb-admin-panel-sa.json"
     set "ADMIN_EMAIL=<your-admin-email>"
@@ -104,24 +192,12 @@ Run:
 
 After success:
 - Sign out of the web app
-- Sign back in (ID token picks up the claim)
-- Confirm access at /admin and claim visibility at /auth-test
+- Sign back in
+- Confirm access at `/admin`
+- Confirm claim visibility at `/auth-test`
 
-## ESLint ignores (current)
-.eslintignore is deprecated (ESLint 9+). Ignores live in:
-- apps\web\eslint.config.mjs
+## ESLint note
+`.eslintignore` is deprecated in ESLint 9+.
 
-## Running app commands
-
-The Next.js app lives in:
-
-`apps/web`
-
-Run app commands from that directory, not from the repository root.
-
-Example:
-
-```cmd
-cd /d C:\dev\dtb-app\apps\web
-npm run lint
-npm run build
+Ignores live in:
+- `apps\web\eslint.config.mjs`

@@ -1,68 +1,65 @@
 # DTB Admin Panel Roadmap
 
-## Current State
-- Next.js App Router app deployed via Firebase App Hosting.
+## Current State (Mar 5, 2026)
+- Next.js app (apps/web) deployed via Firebase App Hosting.
 - Google Auth working.
-- Firestore provisioned with deployed rules (default deny; `/admin/**` admin-only via custom claim).
-- Admin gating implemented via custom claims (`admin: true`) with `/auth-test` verification.
-- `/admin/config` page created to manage Firestore doc `admin/config`.
+- Firestore rules deployed: default deny; /admin/** requires custom claim admin: true.
+- Admin UX gate implemented in src/app/admin/layout.tsx via AdminLayoutClient + AdminShell.
+- /admin/config reads/writes Firestore doc admin/config.
+- ESLint 9 flat config in apps/web/eslint.config.mjs (no .eslintignore).
 
 ---
 
 ## Milestone 1 — Security foundation ✅
+
 ### Goals
-- Real server-side security: Firestore rules + role/claim enforcement.
-- No “security” based on public `NEXT_PUBLIC_*` env variables.
+- Server-side security: Firestore rules + role/claim enforcement.
+- No security based on public NEXT_PUBLIC_* env vars.
 
 ### Completed
-- Firestore rules deployed (default deny + `/admin/**` requires `admin: true`).
-- Admin claim bootstrap script created (`apps/web/scripts/grant-admin.mjs`).
-- `/admin` gating switched to custom claim checks.
-- Removed `NEXT_PUBLIC_ADMIN_EMAILS` from code and hosting env.
+- Firestore rules deployed (default deny + /admin/** requires admin: true).
+- Admin claim bootstrap script created (apps/web/scripts/grant-admin.mjs).
+- Admin gate uses ID token custom claim checks (UX) + Firestore rules (enforcement).
 
 ---
 
-## Milestone 2 — Mobile-first UI system (CURRENT FOCUS)
+## Milestone 2 — Mobile-first UI system (CURRENT)
+
 ### Goals
 - Admin panel usable primarily from a phone.
-- Consistent layout + reusable UI primitives.
+- Consistent layout + reusable patterns.
 
-### Tasks
-- [ ] Create shared Admin shell layout:
-  - sticky top header
-  - simple nav (hamburger / drawer on mobile)
-  - consistent page padding and max widths
-- [ ] Define UI primitives:
-  - Button, Input, Select, Card, SectionHeader
-  - error + loading states
-- [ ] Standardize form patterns:
-  - labels above inputs
-  - large tap targets
-  - one primary action per screen
-- [ ] Convert `/admin/config` to new mobile UI shell (first implementation).
+### Completed
+- Shared Admin shell exists (AdminShell) with sticky header + bottom nav + slide-over menu.
+- /admin and /admin/config run inside shared admin layout.
+
+### Remaining Tasks
+- [ ] Convert /admin landing into a real mobile dashboard (cards, summaries, quick links).
+- [ ] Tighten /admin/config UI: consistent spacing, button/input patterns, basic validation.
+- [ ] Update /auth-test to show token claims clearly (admin true/false) + add “refresh token” action.
+- [ ] Optional: define lightweight UI primitives (Button, Input, Card) if duplication grows.
 
 ### Exit Criteria
-- All `/admin/*` pages share the same layout.
-- Forms are comfortable on a phone (no horizontal scroll; readable; easy tap).
+- All /admin/* pages share the same layout.
+- Forms are comfortable on a phone (no horizontal scroll; readable; easy tap targets).
 
 ---
 
 ## Milestone 3 — v0 Data Model + CRUD (Boats, Customers)
-### v0 Collections (admin-only)
-- `admin/config` (doc)
-- `admin/boats/{boatId}`
-- `admin/customers/{customerId}`
-- (next) `admin/trips/{tripId}`, `admin/bookings/{bookingId}`, `admin/payments/{paymentId}`, `admin/maintenance/{maintenanceId}`, `admin/auditLogs/{logId}`
 
-### Data conventions
-- All docs include: `createdAt`, `updatedAt`
-- References by ID (e.g., `boatId`, `customerId`)
-- Explicit status strings for workflow objects
+### Firestore path convention (important)
+Firestore alternates: collection/doc/collection/doc.
+
+We keep all admin data under /admin/** to leverage existing rules:
+- admin/config (doc) — global admin configuration
+- admin/data/boats/{boatId} (subcollection under doc admin/data)
+- admin/data/customers/{customerId} (subcollection under doc admin/data)
 
 ### Tasks
-- [ ] Boats CRUD (mobile UI):
+- [ ] Boats CRUD (mobile-first):
   - list + create + edit + deactivate
-- [ ] Customers CRUD (mobile UI):
+  - fields (start minimal): name, status, notes
+- [ ] Customers CRUD (mobile-first):
   - list + create + edit
   - quick search by name/email
 
@@ -73,6 +70,7 @@
 ---
 
 ## Milestone 4 — Trips, Bookings, Payments (v0)
+
 ### Goals
 - Record trips and bookings; attach payments; begin operational tracking.
 
@@ -87,8 +85,9 @@
 ---
 
 ## Milestone 5 — Audit + accountability
+
 ### Goals
-- Record all admin changes for debugging and oversight.
+- Record admin changes for debugging and oversight.
 
 ### Tasks
 - [ ] Add audit log writes for create/update/delete actions.

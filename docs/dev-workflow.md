@@ -3,27 +3,26 @@
 ## Repo + App Links
 - Repo: https://github.com/cbrousstulane-commits/dtb-app
 - App Hosting (prod): https://dtb-app--dtb-admin-panel.us-east4.hosted.app
-- Admin route: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/admin
+- Admin: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/admin
+- Auth test: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/auth-test
+- Admin config: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/admin/config
 
 ## Local Repo Location (canonical)
 - Repo lives at: `C:\dev\dtb-app`
-- Always start from that path in Command Prompt.
 
-### Open repo in VS Code
+Open repo in VS Code:
 ```bat
 cd /d C:\dev\dtb-app
 code .
 ```
 
 ## Core rule: build before push
-We **do not push** without running a clean build first.
+We do **not** push without a clean build.
 
 ```bat
 cd /d C:\dev\dtb-app\apps\web
 npm run build
 ```
-
-If build fails: fix it before committing/pushing.
 
 ## Standard daily loop
 
@@ -38,10 +37,9 @@ git pull
 cd /d C:\dev\dtb-app\apps\web
 npm run dev
 ```
-
 - Local URL: http://localhost:3000
 
-### 3) Make changes in VS Code
+### 3) Edit in VS Code
 ```bat
 cd /d C:\dev\dtb-app
 code .
@@ -63,24 +61,25 @@ git push
 ```
 
 ## Documentation discipline (every chat)
-Every session should end with updates to:
+Every session ends with updates to:
 - `docs/roadmap.md`
 - `docs/progress-log.md`
 
-Open quickly:
+Quick open:
 ```bat
 cd /d C:\dev\dtb-app
 code docs\roadmap.md
 code docs\progress-log.md
 ```
 
-## Firebase setup notes (what lives where)
+## Firebase: App Hosting vs Firebase CLI (important distinction)
 
 ### App Hosting (GitHub-connected)
-- App Hosting builds/deploys the Next.js app from GitHub pushes.
-- This is separate from Firebase CLI deployments (rules/indexes/functions).
+- Builds/deploys the Next.js app automatically from GitHub pushes.
+- This is how the hosted URL stays updated.
 
-### Firebase CLI (local machine) – used for rules/indexes/functions
+### Firebase CLI (local machine)
+- Used for Firestore rules/indexes (and later Functions).
 Repo contains:
 - `.firebaserc`
 - `firebase.json`
@@ -94,44 +93,61 @@ firebase use
 firebase deploy --only firestore
 ```
 
-## Firestore security model (current)
+## Security model (current)
 - Firestore rules are **default deny**.
-- `/admin/**` requires Firebase Auth custom claim: `admin: true`.
-- `/users/{uid}` is readable/writable by the user (and admins).
+- `/admin/**` is **admin-only** via Auth custom claim: `admin: true`.
+- Client-side gating is for UX only; Firestore rules are the true enforcement.
+- `/auth-test` shows whether the signed-in user has `admin: true`.
 
 ## Admin claims bootstrap (one-time, local)
 We use a local Node script to grant `admin: true` via Firebase Admin SDK:
 
 - Script: `apps\web\scripts\grant-admin.mjs`
-- Dependency: `firebase-admin` is installed in `apps\web`
+- Dependency: `firebase-admin` installed in `apps\web`
 
-### Required local secret (DO NOT COMMIT)
-Service account JSON should be stored outside the repo, e.g.:
+Service account JSON must be stored outside the repo (DO NOT COMMIT), e.g.:
 - `C:\Users\chris\secrets\dtb-admin-panel-sa.json`
 
-### Run the script
+Run:
 ```bat
 cd /d C:\dev\dtb-app
 set "GOOGLE_APPLICATION_CREDENTIALS=C:\Users\chris\secrets\dtb-admin-panel-sa.json"
-set "ADMIN_EMAIL=your.actual.google.email@gmail.com"
+set "ADMIN_EMAIL=cbrousstulane@gmail.com"
 node apps\web\scripts\grant-admin.mjs
 ```
 
 After success:
 - Sign out of the web app
-- Sign back in (or force token refresh) so the claim is present in the client ID token.
+- Sign back in (so the ID token includes the claim)
+- Confirm at `/auth-test`
+
+## Editor/tooling (monorepo specifics)
+If VS Code shows “squiggles” even when build succeeds:
+- Open `apps\web` as a workspace root:
+```bat
+cd /d C:\dev\dtb-app
+code apps\web
+```
+
+Repo includes:
+- `.vscode/settings.json` (forces ESLint/TS to resolve from `apps\web`)
+- `apps/web/.eslintignore` (prevents ESLint from linting `.next`, etc.)
 
 ## Secrets + safety rules
-- Never commit service account keys, API keys, or private secrets.
-- Do not store “security” in `NEXT_PUBLIC` env vars:
-  - `NEXT_PUBLIC_*` is shipped to the browser.
-- Keep local secrets outside repo folders (ex: `C:\Users\chris\secrets\...`).
+- Never commit service account keys or secrets.
+- Do not store “security” in `NEXT_PUBLIC_*` env vars (they ship to the browser).
+- `.gitignore` includes patterns to avoid committing secrets.
 
-## Troubleshooting quick hits
+## Mobile-first UI (next focus)
+All admin UI work should be optimized for mobile:
+- Mobile-first layout (single-column, large tap targets, sticky top nav)
+- Readable typography and spacing
+- Minimal forms (labels above inputs)
+- Avoid horizontal scrolling; use responsive tables/cards
+- Prefer cards/lists with inline edit links
+- Keep primary actions visible (sticky action bar on mobile)
 
-### VS Code CLI
-If `code` ever breaks, reinstall the VS Code shell command:
-- VS Code → Ctrl+Shift+P → “Shell Command: Install 'code' command in PATH”
-
-### Windows line endings warnings
-Git may warn about LF/CRLF conversions on Windows. This is expected and not blocking.
+Recommended process:
+1) Define base layout + nav (mobile first)
+2) Create reusable UI primitives (Button, Input, Card, Section header)
+3) Apply across Admin pages (Config → Boats → Customers → Trips)

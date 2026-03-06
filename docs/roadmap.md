@@ -3,126 +3,102 @@
 ## Current State
 - Next.js App Router app deployed via Firebase App Hosting.
 - Google Auth working.
-- `/admin` route currently gated client-side (legacy) via `NEXT_PUBLIC_ADMIN_EMAILS` allowlist.
-- Firebase CLI connected to project `dtb-admin-panel`.
-- Firestore provisioned with rules deployed:
-  - Default deny
-  - `/admin/**` requires Auth custom claim `admin: true`
+- Firestore provisioned with deployed rules (default deny; `/admin/**` admin-only via custom claim).
+- Admin gating implemented via custom claims (`admin: true`) with `/auth-test` verification.
+- `/admin/config` page created to manage Firestore doc `admin/config`.
 
 ---
 
-## Milestone 1 — Lock down admin access (REAL security)
+## Milestone 1 — Security foundation ✅
 ### Goals
-- Enforce admin access server-side using Firestore Rules + Auth custom claims.
-- Remove any “security” logic based on `NEXT_PUBLIC_*` env vars.
+- Real server-side security: Firestore rules + role/claim enforcement.
+- No “security” based on public `NEXT_PUBLIC_*` env variables.
+
+### Completed
+- Firestore rules deployed (default deny + `/admin/**` requires `admin: true`).
+- Admin claim bootstrap script created (`apps/web/scripts/grant-admin.mjs`).
+- `/admin` gating switched to custom claim checks.
+- Removed `NEXT_PUBLIC_ADMIN_EMAILS` from code and hosting env.
+
+---
+
+## Milestone 2 — Mobile-first UI system (CURRENT FOCUS)
+### Goals
+- Admin panel usable primarily from a phone.
+- Consistent layout + reusable UI primitives.
 
 ### Tasks
-- [ ] Create local secrets folder and download service account JSON (do not commit).
-  - Example path: `C:\Users\chris\secrets\dtb-admin-panel-sa.json`
-- [ ] Run bootstrap script to grant `admin: true` claim:
-  - `node apps/web/scripts/grant-admin.mjs`
-- [ ] Update `/admin` route UX gating:
-  - Replace allowlist (`NEXT_PUBLIC_ADMIN_EMAILS`) with claim check:
-    - `token.claims.admin === true`
-- [ ] Add explicit “Not authorized” UI for signed-in non-admin users.
-- [ ] Add a simple “Admin status” indicator (optional):
-  - shows email + `admin` true/false
+- [ ] Create shared Admin shell layout:
+  - sticky top header
+  - simple nav (hamburger / drawer on mobile)
+  - consistent page padding and max widths
+- [ ] Define UI primitives:
+  - Button, Input, Select, Card, SectionHeader
+  - error + loading states
+- [ ] Standardize form patterns:
+  - labels above inputs
+  - large tap targets
+  - one primary action per screen
+- [ ] Convert `/admin/config` to new mobile UI shell (first implementation).
 
 ### Exit Criteria
-- Signed-in non-admin cannot read/write any `/admin/**` document (PERMISSION_DENIED).
-- Admin user can read/write `/admin/**`.
-- `/admin` page renders only for admin users (good UX), but rules remain the true enforcement.
+- All `/admin/*` pages share the same layout.
+- Forms are comfortable on a phone (no horizontal scroll; readable; easy tap).
 
 ---
 
-## Milestone 2 — Define v0 data model (Firestore)
-### Goals
-- Establish stable collections + fields for initial admin functionality.
-- Keep everything under `/admin/**` initially to keep rules simple.
-
+## Milestone 3 — v0 Data Model + CRUD (Boats, Customers)
 ### v0 Collections (admin-only)
-- `/admin/config/app`
-- `/admin/boats/{boatId}`
-- `/admin/customers/{customerId}`
-- `/admin/trips/{tripId}`
-- `/admin/bookings/{bookingId}`
-- `/admin/payments/{paymentId}`
-- `/admin/maintenance/{maintenanceId}`
-- `/admin/auditLogs/{logId}`
+- `admin/config` (doc)
+- `admin/boats/{boatId}`
+- `admin/customers/{customerId}`
+- (next) `admin/trips/{tripId}`, `admin/bookings/{bookingId}`, `admin/payments/{paymentId}`, `admin/maintenance/{maintenanceId}`, `admin/auditLogs/{logId}`
 
 ### Data conventions
-- Every doc includes:
-  - `createdAt`, `updatedAt`
-- Reference related entities by ID:
-  - `boatId`, `customerId`, `tripId`, `bookingId`
-- Use explicit status enums (strings):
-  - bookings: `hold | deposit-paid | paid | canceled | refunded`
-  - trips: `planned | confirmed | completed | canceled`
+- All docs include: `createdAt`, `updatedAt`
+- References by ID (e.g., `boatId`, `customerId`)
+- Explicit status strings for workflow objects
+
+### Tasks
+- [ ] Boats CRUD (mobile UI):
+  - list + create + edit + deactivate
+- [ ] Customers CRUD (mobile UI):
+  - list + create + edit
+  - quick search by name/email
 
 ### Exit Criteria
-- `/admin/config/app` exists and can be read in the admin UI.
-- CRUD proof-of-life for at least one entity (boats or customers).
+- Admin can manage boats and customers from mobile.
+- Non-admin cannot read/write any admin docs.
 
 ---
 
-## Milestone 3 — Admin UI (CRUD + navigation)
+## Milestone 4 — Trips, Bookings, Payments (v0)
 ### Goals
-- Build basic admin navigation and pages.
-- Provide quick visibility into operational objects.
+- Record trips and bookings; attach payments; begin operational tracking.
 
 ### Tasks
-- [ ] Add admin layout + nav:
-  - Boats, Customers, Trips, Bookings, Payments, Maintenance, Audit
-- [ ] Implement CRUD UI for:
-  - Boats
-  - Customers
-- [ ] Add list/search/filter (minimal):
-  - text search by name/email for customers
-  - active/inactive filter for boats
-
-### Exit Criteria
-- Admin can create/edit/delete boats and customers through UI.
-- Changes persist in Firestore and are blocked for non-admin.
-
----
-
-## Milestone 4 — Bookings + payments integration hooks (v0)
-### Goals
-- Start capturing booking state and payments in a consistent schema.
-- Defer provider-specific sync until the schema is stable.
-
-### Tasks
-- [ ] Trip creation flow (minimal):
-  - date, boat, captain, trip type, depart/return, status
-- [ ] Booking creation flow:
-  - customer, trip, quoted price, deposit requirements, status
-- [ ] Payment records:
+- [ ] Trips:
+  - date, boat, captain, type, status, depart/return, notes
+- [ ] Bookings:
+  - customer, trip, quoted price, deposit required/paid, status
+- [ ] Payments:
   - provider, amount, providerRef, bookingId
-
-### Exit Criteria
-- Admin can record a booking and payments tied to it.
-- Audit log entries generated for create/update.
 
 ---
 
 ## Milestone 5 — Audit + accountability
 ### Goals
-- Record all admin changes for debugging and accountability.
+- Record all admin changes for debugging and oversight.
 
 ### Tasks
-- [ ] Add `/admin/auditLogs` write helper:
-  - actorUid, action, entityPath, before/after, timestamp
-- [ ] Surface audit log in UI (read-only)
-
-### Exit Criteria
-- All CRUD actions write an audit log entry.
-- Admin can view audit logs.
+- [ ] Add audit log writes for create/update/delete actions.
+- [ ] Add read-only audit view.
 
 ---
 
-## Later (deliberately deferred)
-- Customer portal / tenant portal
-- Public booking flows
-- Payments provider sync (Square/ACH/etc.)
-- Role hierarchy (beyond single admin claim)
-- Server-side APIs (Functions/Next API routes) for sensitive operations
+## Later (deferred)
+- WordPress booking ingestion (webhooks/hooks)
+- Square invoice + webhook sync
+- Exports (CSV)
+- Lodging/purchases modules
+- Roles beyond admin (captain/manager), per-collection permissions

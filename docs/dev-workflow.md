@@ -110,3 +110,18 @@ After success:
 ## ESLint ignores (current)
 .eslintignore is deprecated (ESLint 9+). Ignores live in:
 - apps\web\eslint.config.mjs
+
+## Running app commands
+
+The Next.js app lives in:
+
+`apps/web`
+
+Run app commands from that directory, not from the repository root.
+
+Example:
+
+```cmd
+cd /d C:\dev\dtb-app\apps\web
+npm run lint
+npm run build

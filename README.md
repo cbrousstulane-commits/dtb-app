@@ -30,3 +30,8 @@ Admin panel for Down the Bayou Charters operations: boats, customers, trips, boo
 - /admin/** requires Firebase Auth custom claim admin: true.
 - Local script to set claim: apps/web/scripts/grant-admin.mjs
   (requires service account JSON via GOOGLE_APPLICATION_CREDENTIALS).
+
+## App location
+
+The web app is located in `apps/web`.  
+Run `npm` commands such as `npm run lint` and `npm run build` from `apps/web`.

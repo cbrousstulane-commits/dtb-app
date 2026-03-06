@@ -1,130 +1,153 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React from "react";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "../../../lib/firebase/client";
+import { db } from "@/lib/firebase/client";
+
+function errorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return "unknown error";
+  }
+}
 
 type AdminConfig = {
   companyName?: string;
-  timezone?: string;
-  createdAt?: unknown;
-  updatedAt?: unknown;
+  primaryPhone?: string;
+  primaryEmail?: string;
 };
 
 export default function AdminConfigPage() {
-  const ref = doc(db, "admin", "config"); // Firestore doc path: admin/config
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [status, setStatus] = React.useState<string | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [exists, setExists] = useState(false);
-  const [data, setData] = useState<AdminConfig>({});
-  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = React.useState<AdminConfig>({
+    companyName: "",
+    primaryPhone: "",
+    primaryEmail: "",
+  });
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const snap = await getDoc(ref);
-      setExists(snap.exists());
-      setData((snap.data() as AdminConfig) ?? {});
-    } catch (e: any) {
-      setError(e?.message ?? String(e));
-    } finally {
-      setLoading(false);
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setStatus(null);
+      try {
+        const ref = doc(db, "admin", "config");
+        const snap = await getDoc(ref);
+
+        if (!cancelled) {
+          const data = snap.exists() ? (snap.data() as Partial<AdminConfig>) : {};
+          setForm({
+            companyName: data.companyName ?? "",
+            primaryPhone: data.primaryPhone ?? "",
+            primaryEmail: data.primaryEmail ?? "",
+          });
+        }
+      } catch (e: unknown) {
+        if (!cancelled) setStatus(`Load failed: ${errorMessage(e)}`);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }
 
-  async function createOrUpdate() {
-    setError(null);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function onSave() {
+    setSaving(true);
+    setStatus(null);
     try {
+      const ref = doc(db, "admin", "config");
       await setDoc(
         ref,
         {
-          companyName: data.companyName ?? "Down the Bayou Charters",
-          timezone: data.timezone ?? "America/Chicago",
+          ...form,
           updatedAt: serverTimestamp(),
-          ...(exists ? {} : { createdAt: serverTimestamp() }),
         },
         { merge: true }
       );
-      await load();
-    } catch (e: any) {
-      setError(e?.message ?? String(e));
+      setStatus("Saved.");
+    } catch (e: unknown) {
+      setStatus(`Save failed: ${errorMessage(e)}`);
+    } finally {
+      setSaving(false);
     }
   }
 
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
-    <main style={{ padding: 24, maxWidth: 820 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700 }}>Admin Config</h1>
-      <p style={{ marginTop: 8, opacity: 0.8 }}>
-        Firestore doc: <code>admin/config</code>
-      </p>
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="text-lg font-semibold">Config</div>
+        <div className="mt-1 text-sm opacity-80">
+          Settings stored in Firestore at <code className="opacity-90">admin/config</code>.
+        </div>
+      </section>
 
-      {loading ? (
-        <p style={{ marginTop: 12 }}>Loading...</p>
-      ) : (
-        <>
-          <p style={{ marginTop: 12 }}>
-            Exists: <b>{String(exists)}</b>
-          </p>
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
+        {loading ? (
+          <div className="text-sm opacity-80">Loading…</div>
+        ) : (
+          <>
+            <Field
+              label="Company name"
+              value={form.companyName ?? ""}
+              onChange={(v) => setForm((p) => ({ ...p, companyName: v }))}
+              placeholder="Down the Bayou Charters"
+            />
+            <Field
+              label="Primary phone"
+              value={form.primaryPhone ?? ""}
+              onChange={(v) => setForm((p) => ({ ...p, primaryPhone: v }))}
+              placeholder="(504) 555-1234"
+            />
+            <Field
+              label="Primary email"
+              value={form.primaryEmail ?? ""}
+              onChange={(v) => setForm((p) => ({ ...p, primaryEmail: v }))}
+              placeholder="ops@downthebayou.com"
+            />
 
-          <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
-            <label>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Company name</div>
-              <input
-                value={data.companyName ?? ""}
-                onChange={(e) => setData((d) => ({ ...d, companyName: e.target.value }))}
-                style={{ width: "100%", padding: 10 }}
-                placeholder="Down the Bayou Charters"
-              />
-            </label>
-
-            <label>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Timezone</div>
-              <input
-                value={data.timezone ?? ""}
-                onChange={(e) => setData((d) => ({ ...d, timezone: e.target.value }))}
-                style={{ width: "100%", padding: 10 }}
-                placeholder="America/Chicago"
-              />
-            </label>
-          </div>
-
-          <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button onClick={createOrUpdate} style={{ padding: "10px 14px" }}>
-              {exists ? "Update config" : "Create config"}
-            </button>
-            <button onClick={load} style={{ padding: "10px 14px" }}>
-              Reload
-            </button>
-          </div>
-
-          {error && (
-            <p style={{ marginTop: 12, color: "crimson" }}>
-              Error: <code>{error}</code>
-            </p>
-          )}
-
-          <div style={{ marginTop: 16 }}>
-            <p style={{ fontWeight: 600, marginBottom: 6 }}>Current doc</p>
-            <pre
-              style={{
-                padding: 12,
-                background: "#111",
-                color: "#eee",
-                overflowX: "auto",
-                borderRadius: 8,
-              }}
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving}
+              className="h-12 w-full rounded-xl border border-white/10 bg-white/10 active:bg-white/15 disabled:opacity-50"
             >
-              {JSON.stringify(data, null, 2)}
-            </pre>
-          </div>
-        </>
-      )}
-    </main>
+              {saving ? "Saving…" : "Save"}
+            </button>
+
+            {status && <div className="text-sm opacity-80">{status}</div>}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function Field(props: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-semibold">{props.label}</div>
+      <input
+        value={props.value}
+        placeholder={props.placeholder}
+        onChange={(e) => props.onChange(e.target.value)}
+        className="h-12 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-base outline-none focus:border-white/25"
+      />
+    </div>
   );
 }

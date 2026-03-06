@@ -5,6 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "firebase/auth";
 import { auth } from "../../lib/firebase/client";
 
+function errorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return "unknown error";
+  }
+}
+
 export default function LoginClient() {
   const router = useRouter();
   const params = useSearchParams();
@@ -21,8 +31,8 @@ export default function LoginClient() {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       router.replace(nextPath);
-    } catch (e: any) {
-      setError(e?.message ?? "Login failed");
+    } catch (e: unknown) {
+      setError(errorMessage(e) || "Login failed");
     }
   }
 
@@ -31,8 +41,8 @@ export default function LoginClient() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithRedirect(auth, provider);
-    } catch (e: any) {
-      setError(e?.message ?? "Login failed");
+    } catch (e: unknown) {
+      setError(errorMessage(e) || "Login failed");
     }
   }
 
@@ -50,9 +60,7 @@ export default function LoginClient() {
         </button>
       </div>
 
-      {error && (
-        <p style={{ marginTop: 16, color: "crimson", whiteSpace: "pre-wrap" }}>{error}</p>
-      )}
+      {error && <p style={{ marginTop: 16, color: "crimson", whiteSpace: "pre-wrap" }}>{error}</p>}
     </main>
   );
 }

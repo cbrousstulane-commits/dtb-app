@@ -1,13 +1,13 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import { db } from "@/lib/firebase/client";
-import { CaptainRecord, captainsCollectionPath } from "@/lib/admin/captains";
+import { BoatRecord, boatsCollectionPath } from "@/lib/admin/boats";
 
-type CaptainListItem = CaptainRecord & {
+type BoatListItem = BoatRecord & {
   id: string;
 };
 
@@ -21,29 +21,28 @@ function errorMessage(error: unknown): string {
   }
 }
 
-export default function CaptainsList() {
+export default function BoatsList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [items, setItems] = React.useState<CaptainListItem[]>([]);
+  const [items, setItems] = React.useState<BoatListItem[]>([]);
 
   React.useEffect(() => {
-    const q = query(collection(db, ...captainsCollectionPath), orderBy("name"));
+    const q = query(collection(db, ...boatsCollectionPath), orderBy("name"));
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const next: CaptainListItem[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<CaptainRecord>;
+        const next: BoatListItem[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as Partial<BoatRecord>;
 
           return {
             id: docSnap.id,
             name: data.name ?? "",
             nameLower: data.nameLower ?? "",
             slug: data.slug ?? "",
-            email: data.email ?? "",
-            authUid: data.authUid ?? "",
+            primaryCaptainId: data.primaryCaptainId ?? "",
+            primaryCaptainNameSnapshot: data.primaryCaptainNameSnapshot ?? "",
             status: data.status === "inactive" ? "inactive" : "active",
-            notes: data.notes ?? "",
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
           };
@@ -62,46 +61,46 @@ export default function CaptainsList() {
     return () => unsubscribe();
   }, []);
 
-  const activeCaptains = items.filter((item) => item.status === "active");
-  const inactiveCaptains = items.filter((item) => item.status === "inactive");
+  const activeBoats = items.filter((item) => item.status === "active");
+  const inactiveBoats = items.filter((item) => item.status === "inactive");
 
   return (
     <div className="space-y-4">
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-lg font-semibold">Captains</div>
+            <div className="text-lg font-semibold">Boats</div>
             <div className="mt-1 text-sm opacity-75">
-              Manage captain records now, then attach login/auth mapping as the captain access layer is added.
+              Manage fleet assets, assign a default primary captain, and preserve inactive boats for historical records.
             </div>
           </div>
 
           <Link
-            href="/admin/captains/new"
+            href="/admin/boats/new"
             className="h-12 px-4 rounded-xl border border-white/20 bg-white text-black font-medium flex items-center shrink-0"
           >
-            New captain
+            New boat
           </Link>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <SummaryCard label="Active" value={String(activeCaptains.length)} />
-          <SummaryCard label="Inactive" value={String(inactiveCaptains.length)} />
+          <SummaryCard label="Active" value={String(activeBoats.length)} />
+          <SummaryCard label="Inactive" value={String(inactiveBoats.length)} />
         </div>
       </section>
 
       {loading ? (
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm opacity-80">
-          Loading captains...
+          Loading boats...
         </section>
       ) : error ? (
         <section className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm">
-          Failed to load captains: {error}
+          Failed to load boats: {error}
         </section>
       ) : (
         <>
-          <CaptainSection title="Active captains" items={activeCaptains} emptyLabel="No active captains yet." />
-          <CaptainSection title="Inactive captains" items={inactiveCaptains} emptyLabel="No inactive captains." />
+          <BoatSection title="Active boats" items={activeBoats} emptyLabel="No active boats yet." />
+          <BoatSection title="Inactive boats" items={inactiveBoats} emptyLabel="No inactive boats." />
         </>
       )}
     </div>
@@ -117,9 +116,9 @@ function SummaryCard(props: { label: string; value: string }) {
   );
 }
 
-function CaptainSection(props: {
+function BoatSection(props: {
   title: string;
-  items: CaptainListItem[];
+  items: BoatListItem[];
   emptyLabel: string;
 }) {
   return (
@@ -130,32 +129,31 @@ function CaptainSection(props: {
         {props.items.length === 0 ? (
           <div className="text-sm opacity-70">{props.emptyLabel}</div>
         ) : (
-          props.items.map((item) => <CaptainRow key={item.id} item={item} />)
+          props.items.map((item) => <BoatRow key={item.id} item={item} />)
         )}
       </div>
     </section>
   );
 }
 
-function CaptainRow({ item }: { item: CaptainListItem }) {
+function BoatRow({ item }: { item: BoatListItem }) {
   return (
     <Link
-      href={`/admin/captains/${item.id}`}
+      href={`/admin/boats/${item.id}`}
       className="block rounded-2xl border border-white/10 bg-black/20 p-4 active:bg-white/10"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-semibold truncate">{item.name || "Unnamed captain"}</div>
+          <div className="font-semibold truncate">{item.name || "Unnamed boat"}</div>
           <div className="mt-1 text-xs opacity-70 truncate">slug: {item.slug || "-"}</div>
 
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <Pill label={item.status === "active" ? "Active" : "Inactive"} />
-            <Pill label={item.authUid ? "Auth linked" : "Auth not linked"} />
-            {item.email ? <Pill label={item.email} /> : null}
+            <Pill label={item.primaryCaptainNameSnapshot || "No primary captain"} />
           </div>
         </div>
 
-        <div className="text-sm opacity-60">{"->"}</div>
+        <div className="text-sm opacity-60">-&gt;</div>
       </div>
     </Link>
   );
@@ -168,3 +166,4 @@ function Pill({ label }: { label: string }) {
     </span>
   );
 }
+

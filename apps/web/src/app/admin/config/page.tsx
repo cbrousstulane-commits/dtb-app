@@ -94,7 +94,7 @@ export default function AdminConfigPage() {
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
         {loading ? (
-          <div className="text-sm opacity-80">Loading…</div>
+          <div className="text-sm opacity-80">Loading...</div>
         ) : (
           <>
             <Field
@@ -122,7 +122,7 @@ export default function AdminConfigPage() {
               disabled={saving}
               className="h-12 w-full rounded-xl border border-white/10 bg-white/10 active:bg-white/15 disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving..." : "Save"}
             </button>
 
             {status && <div className="text-sm opacity-80">{status}</div>}

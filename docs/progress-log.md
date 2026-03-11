@@ -1,99 +1,171 @@
 # DTB App Progress Log
 
-## 2026-02-26
+## 2026-03-11 - Product vision locked for Codex handoff
+
+### Summary
+Locked the product direction and build order before transitioning active build work into a Codex-oriented workflow.
+
+### Confirmed product rules
+- Website is the forward-looking source of truth.
+- Admin app is the retrospective operational source of truth.
+- Captains are a first-class entity with their own login/access path later.
+- Boats are a core managed asset.
+- Lodge rooms are a core managed asset.
+- Customers are admin-managed and will need Square CSV import.
+- Trip Types are admin-defined and determine trip duration in hours.
+- Each boat has a primary captain.
+- Trip logs and maintenance logs should default to the boat's primary captain but allow override.
+- Deactivation is preferred over deletion.
+- Historical records must preserve values recorded at the time of entry.
+
+### Inventory direction
+- Boats, captains, and lodge rooms are inventory-like assets.
+- Each boat = inventory of 1.
+- Each captain = inventory of 1.
+- Each lodge room = inventory of 1.
+- Lodge total inventory = 8 rooms.
+
+### Captain access direction
+- Captains will later gain access through the Gmail entered by admin.
+- Captains should have access to all trips for the current day and all customers.
+- Captains should be able to work within day-of trip-log workflows.
+- On trip logs, captains should be able to:
+  - change the boat
+  - keep the prepopulated customer
+  - switch to another existing customer
+  - search the customer list
+  - add a new customer if needed
+  - create an ad hoc entry if the scheduled trip does not represent reality exactly
+
+### Lodge room direction
+- Lodge rooms should be modeled as 8 separate room records.
+- Default room assignment should fill sequentially from room 1 through room 8.
+- Related parties should be placed adjacent whenever possible.
+- Manual override should remain possible.
+
+### Pricing direction
+- Pricing is asset-specific, not global.
+- Boat + Trip Type should support:
+  - retail/customer-facing price
+  - owner contract price, if applicable
+- Captain + Trip Type should support:
+  - captain pay amount
+
+### Website booking import direction
+- Trips/bookings must import from the website via CSV.
+- The system must handle new bookings, modifications, and cancellations.
+- Imported website bookings may contain multiple separate booking items under one overall booking group.
+- Example components include:
+  - offshore trip
+  - inshore trip
+  - lodge stay
+  - all-inclusive add-on
+- All-inclusive should be modeled as an add-on item, not an inventory asset.
+
+### Identity resolution direction
+- Complete trips will likely require marrying separate bookings into one operational context.
+- Primary identifiers for customer matching should be email and phone.
+- Secondary identifiers may include normalized name and booking context.
+- Duplicate customer profiles are expected and merge tooling will be needed later.
+- Import should preserve raw data first and avoid unsafe auto-merges.
+
+### Current repo state at handoff
+- Firebase + Next.js admin scaffold exists.
+- Google Auth exists.
+- Admin claim gating exists.
+- `/auth-test` already supports token/claim inspection and refresh.
+- Captains CRUD is partially implemented.
+- Boats currently has only a placeholder page.
+- Lodge rooms CRUD is not implemented yet.
+- Customers CRUD/import is not implemented yet.
+- Trip Types CRUD is not implemented yet.
+- Website booking import is not implemented yet.
+- Shared activity views are not implemented yet.
+- Captain portal is not implemented yet.
+
+### Documentation changes
+- `docs/roadmap.md` should be rewritten into milestone-based Codex-friendly format.
+- `docs/dev-workflow.md` should be updated with Codex execution and verification rules.
+- Build order should be explicit and stable so each Codex session can take one milestone at a time.
+
+### Intended implementation order
+1. Admin shell stabilization
+2. Boats CRUD v1
+3. Lodge Rooms CRUD v1
+4. Customers CRUD + Square CSV import v1
+5. Trip Types CRUD v1
+6. Website Booking Import v1
+7. Customer Review / Merge v1
+8. Rate Tables v1
+9. Shared Activity Views v1
+10. Captain Access v1
+11. Operational Trip Assembly v1
+12. Trips / Operational Records v1
+13. Trip Logs and Maintenance Logs v1
+
+## 2026-03-11 - Milestone 0 admin shell route pass
+
+### Summary
+Verified that `apps/web/src/app/admin/layout.tsx` mounts the shared admin shell for admin child routes and tightened the shell navigation for the Milestone 0 route set.
+
 ### Completed
-- Created local repo and pushed to GitHub
-- Created Next.js app in apps/web (TypeScript, App Router, Tailwind)
-- Verified dev server runs locally
+- Confirmed /admin, /admin/captains, /admin/boats, and /admin/config are all routed under the shared `apps/web/src/app/admin/layout.tsx` layout.
+- Moved /admin/config into the persistent shared shell nav so the milestone routes are reachable from the shell without relying on the slide-over menu.
+- Left Boats CRUD and auth architecture untouched.
 
-### Next Step
-- Initialize Firebase (Firestore + Hosting) in this repo
 
----
+## 2026-03-11 - Milestone 1 boats CRUD v1
 
-## 2026-03-03
+### Summary
+Replaced the boats placeholder with real admin CRUD flows under the shared admin shell.
+
 ### Completed
-- Firebase App Hosting configured and deploying from GitHub
-- Google Auth working in the hosted app
-- Firestore created; rules deployed (default deny; /admin/** requires admin: true)
-- Added admin-claim bootstrap script: apps/web/scripts/grant-admin.mjs
-- Added /admin/config page to manage Firestore doc admin/config
+- Added Firestore helper utilities at `apps/web/src/lib/admin/boats.ts` for boat records, form normalization, and path helpers.
+- Added boats list, create, and edit UI components in `apps/web/src/components/admin/BoatsList.tsx`, `apps/web/src/components/admin/BoatForm.tsx`, and `apps/web/src/components/admin/BoatEditPage.tsx`.
+- Added routes for `apps/web/src/app/admin/boats/page.tsx`, `apps/web/src/app/admin/boats/new/page.tsx`, and `apps/web/src/app/admin/boats/[boatId]/page.tsx`.
+- Boats can now be created, edited, deactivated/reactivated, and assigned a primary captain from the existing captains collection.
+- Verified with `npm run build` from `apps/web`.
 
-### Next Step
-- Add a shared admin layout and begin mobile-first UI pass
+## 2026-03-11 - Milestone 2 lodge rooms CRUD v1
 
----
+### Summary
+Implemented lodge room management for the 8 nightly room units under the shared admin shell.
 
-## 2026-03-05
 ### Completed
-- Added mobile-first Admin shell scaffolding:
-  - AdminLayoutClient (claim gate) + AdminShell (header/nav/menu)
-  - /admin/* wrapped by src/app/admin/layout.tsx
-- Standardized ESLint on flat config (apps/web/eslint.config.mjs) and removed legacy .eslintignore
-- Confirmed repo conventions:
-  - App Router lives in apps/web/src/app
-  - Components in apps/web/src/components
-  - @/… resolves into apps/web/src/…
-- Verified npm run lint and npm run build clean; pushed updates to main
+- Added Firestore helper utilities at `apps/web/src/lib/admin/lodgeRooms.ts` for lodge room records, form normalization, and path helpers.
+- Added lodge room list, create, and edit UI components in `apps/web/src/components/admin/LodgeRoomsList.tsx`, `apps/web/src/components/admin/LodgeRoomForm.tsx`, and `apps/web/src/components/admin/LodgeRoomEditPage.tsx`.
+- Added routes for `apps/web/src/app/admin/lodge-rooms/page.tsx`, `apps/web/src/app/admin/lodge-rooms/new/page.tsx`, and `apps/web/src/app/admin/lodge-rooms/[roomId]/page.tsx`.
+- Added an 8-room cap so the admin UI does not create a ninth lodge room record.
+- Verified with `npm run build` from `apps/web`.
 
-### Next Step
-- Update /auth-test to show ID token claims clearly and support token refresh
-- Convert /admin landing into a real mobile dashboard
-- Start Boats CRUD using Firestore path admin/data/boats/{boatId}
+## 2026-03-11 - Roadmap order shift
 
-## 2026-03-05 — Product model clarified: captains, boats, trips, maintenance
+### Summary
+Deferred Square customer import until later in the roadmap so master-data CRUD can be built first without taking on external import/API integration early.
 
-### Decisions made
-- Confirmed that the **website** is the forward-looking source of truth for public-facing inventory/availability.
-- Confirmed that the **DTB Admin Panel** is the retrospective operational source of truth for what actually happened.
-- Confirmed that the admin app should **mirror** core website entities as needed, but should **not** yet write operational data back to the website.
-- Confirmed that **deactivation** is preferred over deletion for managed records.
+### Updated order
+- Milestone 3 is now Trip Types CRUD v1.
+- Customers manual CRUD moves ahead of Square import.
+- Square customer import is deferred to a later milestone after core customer records and website booking import work.
+## 2026-03-11 - Milestone 3 trip types CRUD v1
 
-### Core entities established
-The initial operational data model will center on:
-- Captains
-- Boats
-- Trip Logs
-- Maintenance Logs
+### Summary
+Implemented trip type management so the admin app can define trip durations in hours before pricing and import work.
 
-### Boats
-- Boats are confirmed as a core managed asset.
-- Admins must be able to:
-  - list boats
-  - create boats
-  - edit/rename boats
-  - deactivate/reactivate boats
-- Boats will later support reconciliation/mirroring with website-side boat identity.
-- Boats will serve as the anchor record for trip and maintenance history.
+### Completed
+- Added Firestore helper utilities at `apps/web/src/lib/admin/tripTypes.ts` for trip type records, form normalization, and path helpers.
+- Added trip type list, create, and edit UI components in `apps/web/src/components/admin/TripTypesList.tsx`, `apps/web/src/components/admin/TripTypeForm.tsx`, and `apps/web/src/components/admin/TripTypeEditPage.tsx`.
+- Added routes for `apps/web/src/app/admin/trip-types/page.tsx`, `apps/web/src/app/admin/trip-types/new/page.tsx`, and `apps/web/src/app/admin/trip-types/[tripTypeId]/page.tsx`.
+- Shifted the roadmap order so Square customer import is deferred until after core master-data and booking work.
+- Verified with `npm run build` from `apps/web`.
+## 2026-03-11 - Milestone 4 customers CRUD v1
 
-### Captains
-- Captains are confirmed as a separate model/entity.
-- Captains will require their own login/access path.
-- Admins will authorize or provision captain access.
-- Captain identity and captain authentication should remain separate concerns in the data model.
+### Summary
+Implemented manual customer master-record management before import and merge workflows.
 
-### Boat/captain relationship
-- Each boat has a **primary captain**.
-- Trip logs should default to the boat’s primary captain but allow override for substitute captains.
-- Maintenance logs should also default to the boat’s primary captain/responsible operator but allow override.
-
-### Historical integrity rule
-- Historical trip and maintenance records must preserve the captain and boat values recorded at the time of entry.
-- Editing a boat’s primary captain later must not retroactively change old logs.
-
-### Product intent clarified
-Primary goals:
-- create a retrospective trip log with operational datapoints
-- create a maintenance log with operational and cost history
-
-Secondary goals:
-- generate partner/owner statements showing actual boat usage
-- support contractual lease-payment calculations based on usage
-- support maintenance-cost reporting by boat
-
-### Agreed next build sequence
-1. Captains CRUD
-2. Boats CRUD
-3. Auth/role linkage for admin and captain access
-4. Trip Logs
-5. Maintenance Logs
+### Completed
+- Added Firestore helper utilities at `apps/web/src/lib/admin/customers.ts` for customer records, form normalization, and path helpers.
+- Added customer list, create, and edit UI components in `apps/web/src/components/admin/CustomersList.tsx`, `apps/web/src/components/admin/CustomerForm.tsx`, and `apps/web/src/components/admin/CustomerEditPage.tsx`.
+- Added routes for `apps/web/src/app/admin/customers/page.tsx`, `apps/web/src/app/admin/customers/new/page.tsx`, and `apps/web/src/app/admin/customers/[customerId]/page.tsx`.
+- Kept this milestone manual-only: customer source defaults to `manual`, with no Square import or merge workflow yet.
+- Verified with `npm run build` from `apps/web`.

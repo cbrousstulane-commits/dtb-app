@@ -10,10 +10,13 @@ const PRIMARY_NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/captains", label: "Captains" },
   { href: "/admin/boats", label: "Boats" },
+  { href: "/admin/config", label: "Config" },
 ];
 
 const SECONDARY_NAV = [
-  { href: "/admin/config", label: "Config" },
+  { href: "/admin/lodge-rooms", label: "Lodge Rooms" },
+  { href: "/admin/trip-types", label: "Trip Types" },
+  { href: "/admin/customers", label: "Customers" },
   { href: "/auth-test", label: "Auth Test" },
 ];
 
@@ -62,7 +65,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-black/80 backdrop-blur">
         <div className="mx-auto w-full max-w-screen-sm px-2 py-2">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {PRIMARY_NAV.map((item) => {
               const active = isActive(pathname, item.href);
 

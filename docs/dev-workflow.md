@@ -1,203 +1,91 @@
-# DTB Admin Panel – Dev Workflow (Windows + VS Code + Firebase)
+# DTB Admin Panel Dev Workflow
 
-## Repo + App Links
-- Repo: https://github.com/cbrousstulane-commits/dtb-app
-- App Hosting (prod): https://dtb-app--dtb-admin-panel.us-east4.hosted.app
-- Admin: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/admin
-- Admin config: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/admin/config
-- Auth test: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/auth-test
-- Login: https://dtb-app--dtb-admin-panel.us-east4.hosted.app/login
+## Repo / App Roots
+- Repo root: `C:\dev\dtb-app`
+- App package root: `C:\dev\dtb-app\apps\web`
 
-## Local Repo Location (canonical)
-- Repo lives at: `C:\dev\dtb-app`
+## Command Rules
+- Run npm commands from `C:\dev\dtb-app\apps\web`
+- Run git and repo-level doc commands from `C:\dev\dtb-app`
+- Never create a repo-root `src` folder
+- Always use full repo-relative paths when creating or editing files
 
-Open repo in VS Code:
+## Before Starting Any New Task
+1. Read:
+   - `docs/roadmap.md`
+   - `docs/progress-log.md`
+   - `docs/dev-workflow.md`
+2. Inspect the actual live repo files relevant to the task before assuming scaffolds are complete.
+3. Confirm the task is limited to a single roadmap milestone or tightly bounded subtask.
 
-    cd /d C:\dev\dtb-app
-    code .
+## Codex Operating Rules
+- One milestone or tightly bounded subtask per branch/PR.
+- Do not mix unrelated features in one pass.
+- Prefer targeted edits over architecture rewrites.
+- Preserve working authentication and route structure unless the task explicitly requires changes.
+- Do not replace separate first-class entities with a generic inventory abstraction.
+- Prefer active/inactive status over hard deletion.
+- Preserve historical records with snapshot fields on operational records.
 
-## Working directory rule
-- App code edits belong under `apps\web\src\...`
-- App commands run from `C:\dev\dtb-app\apps\web`
-- Git and docs commands usually run from `C:\dev\dtb-app`
-- Never create or edit a repo-root `src\` folder
+## Required Output for Each Codex Task
+Every coding task should end with:
+- files changed
+- what was implemented
+- any assumptions made
+- commands run
+- build result
+- lint result if run
+- manual test path
+- known follow-up issues
 
-## Project layout conventions
-- Next.js App Router lives at: `apps\web\src\app`
-- Shared UI/components live at: `apps\web\src\components`
-- Firebase/browser utilities live at: `apps\web\src\lib`
-- Scripts live at: `apps\web\scripts`
-- Docs live at: `docs`
-- The `@/…` import alias resolves into `apps\web\src\…`
-- Do NOT create a second router root at `apps\web\app`
-- Do NOT use `apps\web\components`
-- Use `apps\web\src\components` only
+## Verification Rules
+From `C:\dev\dtb-app\apps\web`:
+- run `npm run build` before finalizing a milestone
+- run other checks only if they already exist and are relevant
 
-## Repository map
-Repo root:
-- `C:\dev\dtb-app`
+If a build fails:
+- fix the failure before moving on
+- do not leave the repo in a knowingly broken state
 
-Primary app package:
-- `apps\web`
+## Documentation Rules
+After each milestone or meaningful subtask:
+- update `docs/progress-log.md`
+- update `docs/roadmap.md` if milestone status or scope changed
 
-App source root:
-- `apps\web\src`
+## Architecture Guidance
+- Website = forward-looking source of truth
+- Admin app = retrospective operational source of truth
+- Captains, boats, lodge rooms, customers, and trip types are first-class entities
+- Boats, captains, and lodge rooms are inventory-like assets with quantity 1
+- Lodge inventory is represented as 8 separate room records
+- Historical logs and operational records must preserve snapshot values at time of entry
+- Trip logs and maintenance logs should default to the boat's primary captain but allow override
+- Imported booking data should be preserved first, then matched/assembled into operational views
 
-App Router pages:
-- `apps\web\src\app`
+## Data-Model Guidance
+- Keep master records separate from imported booking records and operational records
+- Use separate collections for:
+  - master data
+  - imported booking data
+  - operational logs/records
+- Do not assume one imported booking row equals one complete trip
+- Do not force ambiguous customer matches into auto-merges
+- Ambiguous matches should survive import and be reviewable later
 
-Shared UI/components:
-- `apps\web\src\components`
+## Current Priority
+Follow the milestone order in `docs/roadmap.md`.
 
-Firebase/browser utilities:
-- `apps\web\src\lib`
-
-Scripts:
-- `apps\web\scripts`
-
-Docs:
-- `docs`
-
-## Standard daily loop
-
-### 1) Pull latest
-
-    cd /d C:\dev\dtb-app
-    git pull
-
-### 2) Run locally
-
-    cd /d C:\dev\dtb-app\apps\web
-    npm run dev
-
-Local URL:
-- `http://localhost:3000`
-
-### 3) Edit in VS Code
-
-    cd /d C:\dev\dtb-app
-    code .
-
-### 4) Lint + build before any push
-
-    cd /d C:\dev\dtb-app\apps\web
-    npm run lint
-    npm run build
-
-### 5) Commit + push
-
-    cd /d C:\dev\dtb-app
-    git status
-    git add -A
-    git commit -m "Describe change"
-    git push
-
-## Required checks before any push
-We do not push without both of these clean:
-
-    cd /d C:\dev\dtb-app\apps\web
-    npm run lint
-    npm run build
-
-## Documentation discipline
-Update these whenever product direction, file structure, or completed work changes:
-- `docs/roadmap.md`
-- `docs/progress-log.md`
-
-Quick open:
-
-    cd /d C:\dev\dtb-app
-    code docs\roadmap.md
-    code docs\progress-log.md
-
-## Before creating new files
-1. Confirm current directory with `cd`
-2. Confirm target folder exists with `dir`
-3. Confirm the file belongs in `apps\web\src\...` and not repo-root `src\...`
-4. After file creation, run `git status` from repo root
-
-## After creating or moving files
-Run:
-
-    cd /d C:\dev\dtb-app
-    git status
-
-This is the fastest way to catch files accidentally created in the wrong directory.
-
-## Important for creating files and avoiding copy/paste errors
-Open files from the repo root using full repo-relative paths.
-
-Example:
-
-    cd /d C:\dev\dtb-app
-    code apps\web\src\app\admin\captains\page.tsx
-
-Run app validation from the app package directory:
-
-    cd /d C:\dev\dtb-app\apps\web
-    npm run build
-
-## Current build surface
-Current active product work is in:
-- `apps\web\src\app\admin`
-- `apps\web\src\components\admin`
-- `apps\web\src\lib`
-
-If new admin features are added, default to those locations unless there is a strong reason otherwise.
-
-## Firebase: App Hosting vs Firebase CLI
-### App Hosting (GitHub-connected)
-- Builds and deploys the Next.js app automatically from GitHub pushes
-
-### Firebase CLI (local machine)
-- Used for Firestore rules/indexes
-- Later may also be used for Functions
-
-Repo contains:
-- `.firebaserc`
-- `firebase.json`
-- `firestore.rules`
-- `firestore.indexes.json`
-
-Deploy Firestore rules/indexes:
-
-    cd /d C:\dev\dtb-app
-    firebase use <your-project-alias-or-id>
-    firebase deploy --only firestore:rules,firestore:indexes
-
-## Security model (current)
-- Firestore rules are default deny
-- `/admin/**` in Firestore is admin-only via Auth custom claim `admin: true`
-- Client-side gating is UX-only
-- Firestore rules are the real enforcement
-
-## Admin claims bootstrap (one-time, local)
-We use a local Node script to grant `admin: true` via Firebase Admin SDK.
-
-Script:
-- `apps\web\scripts\grant-admin.mjs`
-
-Note:
-- `firebase-admin` is installed in `apps\web`
-
-Service account JSON must be stored outside the repo and never committed, for example:
-- `C:\Users\chris\secrets\dtb-admin-panel-sa.json`
-
-Run:
-
-    cd /d C:\dev\dtb-app
-    set "GOOGLE_APPLICATION_CREDENTIALS=C:\Users\chris\secrets\dtb-admin-panel-sa.json"
-    set "ADMIN_EMAIL=<your-admin-email>"
-    node apps\web\scripts\grant-admin.mjs
-
-After success:
-- Sign out of the web app
-- Sign back in
-- Confirm access at `/admin`
-- Confirm claim visibility at `/auth-test`
-
-## ESLint note
-`.eslintignore` is deprecated in ESLint 9+.
-
-Ignores live in:
-- `apps\web\eslint.config.mjs`
+Immediate order:
+1. Admin shell stabilization
+2. Boats CRUD v1
+3. Trip Types CRUD v1
+4. Customers CRUD v1
+5. Website Booking Import v1
+6. Customers Square CSV Import v1
+7. Customer Review / Merge v1
+8. Rate Tables v1
+9. Shared Activity Views v1
+10. Captain Access v1
+11. Operational Trip Assembly v1
+12. Trips / Operational Records v1
+13. Trip Logs and Maintenance Logs v1

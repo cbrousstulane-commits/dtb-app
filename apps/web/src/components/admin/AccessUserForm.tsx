@@ -6,21 +6,20 @@ import { addDoc, collection, doc, serverTimestamp, setDoc } from "firebase/fires
 import { useRouter } from "next/navigation";
 
 import {
-  captainDocPath,
-  captainsCollectionPath,
-  CaptainFormValues,
-  CaptainRecord,
-  emptyCaptainForm,
-  normalizeCaptainPayload,
-  slugify,
-  toCaptainFormValues,
-} from "@/lib/admin/captains";
+  AccessUserFormValues,
+  AccessUserRecord,
+  accessUserDocPath,
+  accessUsersCollectionPath,
+  emptyAccessUserForm,
+  normalizeAccessUserPayload,
+  toAccessUserFormValues,
+} from "@/lib/admin/accessUsers";
 import { db } from "@/lib/firebase/client";
 
-type CaptainFormProps = {
+type AccessUserFormProps = {
   mode: "create" | "edit";
-  captainId?: string;
-  initialValues?: Partial<CaptainFormValues> | Partial<CaptainRecord> | null;
+  userId?: string;
+  initialValues?: Partial<AccessUserFormValues> | Partial<AccessUserRecord> | null;
 };
 
 function errorMessage(error: unknown): string {
@@ -33,44 +32,25 @@ function errorMessage(error: unknown): string {
   }
 }
 
-export default function CaptainForm({
+export default function AccessUserForm({
   mode,
-  captainId,
+  userId,
   initialValues,
-}: CaptainFormProps) {
+}: AccessUserFormProps) {
   const router = useRouter();
 
   const initialForm = React.useMemo(
-    () => toCaptainFormValues(initialValues ?? emptyCaptainForm()),
+    () => toAccessUserFormValues(initialValues ?? emptyAccessUserForm()),
     [initialValues],
   );
 
-  const [form, setForm] = React.useState<CaptainFormValues>(initialForm);
-  const [slugManuallyEdited, setSlugManuallyEdited] = React.useState(Boolean(initialForm.slug));
+  const [form, setForm] = React.useState<AccessUserFormValues>(initialForm);
   const [saving, setSaving] = React.useState(false);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const next = toCaptainFormValues(initialValues ?? emptyCaptainForm());
-    setForm(next);
-    setSlugManuallyEdited(Boolean(next.slug));
+    setForm(toAccessUserFormValues(initialValues ?? emptyAccessUserForm()));
   }, [initialValues]);
-
-  function updateName(value: string) {
-    setForm((prev) => ({
-      ...prev,
-      name: value,
-      slug: slugManuallyEdited ? prev.slug : slugify(value),
-    }));
-  }
-
-  function updateSlug(value: string) {
-    setSlugManuallyEdited(true);
-    setForm((prev) => ({
-      ...prev,
-      slug: slugify(value),
-    }));
-  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,33 +59,33 @@ export default function CaptainForm({
 
     try {
       if (!form.name.trim()) {
-        throw new Error("Captain name is required.");
+        throw new Error("User name is required.");
       }
 
-      const payload = normalizeCaptainPayload(form);
-
-      if (!payload.slug) {
-        throw new Error("Slug could not be generated. Add a valid name or slug.");
+      if (!form.email.trim()) {
+        throw new Error("Google email is required.");
       }
+
+      const payload = normalizeAccessUserPayload(form);
 
       if (mode === "create") {
-        const ref = await addDoc(collection(db, ...captainsCollectionPath), {
+        const ref = await addDoc(collection(db, ...accessUsersCollectionPath), {
           ...payload,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
 
-        router.replace(`/admin/captains/${ref.id}`);
+        router.replace(`/admin/users/${ref.id}`);
         router.refresh();
         return;
       }
 
-      if (!captainId) {
-        throw new Error("Missing captain ID for edit mode.");
+      if (!userId) {
+        throw new Error("Missing user ID for edit mode.");
       }
 
       await setDoc(
-        doc(db, ...captainDocPath(captainId)),
+        doc(db, ...accessUserDocPath(userId)),
         {
           ...payload,
           updatedAt: serverTimestamp(),
@@ -125,79 +105,70 @@ export default function CaptainForm({
   return (
     <div className="space-y-4">
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="text-lg font-semibold">
-          {mode === "create" ? "New Captain" : "Edit Captain"}
-        </div>
+        <div className="text-lg font-semibold">{mode === "create" ? "New Access User" : "Edit Access User"}</div>
         <div className="mt-1 text-sm opacity-75">
-          Active captains can receive site access through their Google email. Turn on admin access only for captains who should open the admin panel.
+          Use this for staff or admin users who are not modeled as captains. Claims are applied automatically after their next Google sign-in.
         </div>
       </section>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
           <Field
-            label="Captain name"
+            label="Name"
             value={form.name}
-            placeholder="Taylor Landry"
-            onChange={updateName}
+            placeholder="Office Manager"
             disabled={saving}
-          />
-
-          <Field
-            label="Slug"
-            value={form.slug}
-            placeholder="taylor-landry"
-            onChange={updateSlug}
-            disabled={saving}
+            onChange={(value) => setForm((prev) => ({ ...prev, name: value }))}
           />
 
           <Field
             label="Google email"
             value={form.email}
-            placeholder="captain@example.com"
-            onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
+            placeholder="staff@example.com"
             disabled={saving}
+            onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
           />
 
           <Field
             label="Auth UID"
             value={form.authUid}
             placeholder="Auto-linked after first sign-in"
-            onChange={(value) => setForm((prev) => ({ ...prev, authUid: value }))}
             disabled={saving}
+            onChange={(value) => setForm((prev) => ({ ...prev, authUid: value }))}
           />
 
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-3">
-            <div>
-              <div className="text-sm font-medium">Access</div>
-              <div className="mt-1 text-sm opacity-75">
-                Any active captain with a matching Google email can sign in. Admin access adds the admin claim on next sign-in or token refresh.
-              </div>
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Role</div>
+            <div className="grid grid-cols-2 gap-2">
+              <ChoiceButton
+                active={form.role === "user"}
+                label="User"
+                disabled={saving}
+                onClick={() => setForm((prev) => ({ ...prev, role: "user" }))}
+              />
+              <ChoiceButton
+                active={form.role === "admin"}
+                label="Admin"
+                disabled={saving}
+                onClick={() => setForm((prev) => ({ ...prev, role: "admin" }))}
+              />
             </div>
-
-            <ToggleRow
-              label="Admin access"
-              description="Allow this captain to open /admin in addition to the captain/user access area."
-              checked={form.adminAccess}
-              disabled={saving}
-              onChange={(checked) => setForm((prev) => ({ ...prev, adminAccess: checked }))}
-            />
           </div>
 
           <div className="space-y-2">
             <div className="text-sm font-medium">Status</div>
             <div className="grid grid-cols-2 gap-2">
-              <StatusButton
+              <ChoiceButton
                 active={form.status === "active"}
                 label="Active"
-                onClick={() => setForm((prev) => ({ ...prev, status: "active" }))}
                 disabled={saving}
+                onClick={() => setForm((prev) => ({ ...prev, status: "active" }))}
               />
-              <StatusButton
+              <ChoiceButton
                 active={form.status === "inactive"}
                 label="Inactive"
-                onClick={() => setForm((prev) => ({ ...prev, status: "inactive" }))}
                 disabled={saving}
+                onClick={() => setForm((prev) => ({ ...prev, status: "inactive" }))}
               />
             </div>
           </div>
@@ -205,9 +176,9 @@ export default function CaptainForm({
           <TextAreaField
             label="Notes"
             value={form.notes}
-            placeholder="Optional operations or access notes"
-            onChange={(value) => setForm((prev) => ({ ...prev, notes: value }))}
+            placeholder="Optional access notes"
             disabled={saving}
+            onChange={(value) => setForm((prev) => ({ ...prev, notes: value }))}
           />
         </section>
 
@@ -218,20 +189,18 @@ export default function CaptainForm({
               disabled={saving}
               className="h-12 px-4 rounded-xl border border-white/20 bg-white text-black font-medium disabled:opacity-60"
             >
-              {saving ? "Saving..." : mode === "create" ? "Create captain" : "Save changes"}
+              {saving ? "Saving..." : mode === "create" ? "Create user" : "Save changes"}
             </button>
 
             <Link
-              href="/admin/captains"
+              href="/admin/users"
               className="h-12 px-4 rounded-xl border border-white/10 bg-white/5 active:bg-white/10 flex items-center"
             >
-              Back to captains
+              Back to users
             </Link>
           </div>
 
-          {statusMessage ? (
-            <div className="mt-3 text-sm opacity-80">{statusMessage}</div>
-          ) : null}
+          {statusMessage ? <div className="mt-3 text-sm opacity-80">{statusMessage}</div> : null}
         </section>
       </form>
     </div>
@@ -281,34 +250,7 @@ function TextAreaField(props: {
   );
 }
 
-function ToggleRow(props: {
-  label: string;
-  description: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => props.onChange(!props.checked)}
-      disabled={props.disabled}
-      className="w-full rounded-2xl border border-white/10 bg-white/5 p-3 text-left disabled:opacity-60"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm font-medium">{props.label}</div>
-          <div className="mt-1 text-xs opacity-70">{props.description}</div>
-        </div>
-        <span className={props.checked ? "text-emerald-300" : "opacity-60"}>
-          {props.checked ? "On" : "Off"}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-function StatusButton(props: {
+function ChoiceButton(props: {
   active: boolean;
   label: string;
   disabled?: boolean;

@@ -306,6 +306,8 @@ Examples:
 - Lodge rooms CRUD v1 is implemented with list, create, edit, active/inactive status, and an 8-room cap.
 - Customers CRUD v1 is implemented with manual list, create, edit, and active/inactive status.
 - Trip types CRUD v1 is implemented with list, create, edit, durationHours, and active/inactive status.
+- Non-captain access users CRUD is implemented for limited user/admin access by Google email.
+- `/access` exists as the signed-in non-admin landing page.
 - Website booking import is not implemented yet.
 - Shared activity/date-range views are not implemented yet.
 - Captain portal is not implemented yet.

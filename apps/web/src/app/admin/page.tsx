@@ -14,7 +14,12 @@ export default function AdminDashboardPage() {
         <ActionCard
           href="/admin/captains"
           title="Captains"
-          description="Create, edit, deactivate, and prepare captain records for future login/access."
+          description="Create, edit, deactivate, and manage captain site/admin access through Google email."
+        />
+        <ActionCard
+          href="/admin/users"
+          title="Users"
+          description="Manage non-captain Google-email access records for staff and admin users."
         />
         <ActionCard
           href="/admin/boats"
@@ -47,7 +52,7 @@ export default function AdminDashboardPage() {
           <div>3. Lodge rooms CRUD</div>
           <div>4. Trip types CRUD</div>
           <div>5. Customers CRUD</div>
-          <div>6. Auth and role linkage</div>
+          <div>6. Access and role linkage</div>
           <div>7. Trip logs</div>
           <div>8. Maintenance logs</div>
         </div>
@@ -58,6 +63,7 @@ export default function AdminDashboardPage() {
 
         <div className="mt-3 grid gap-2">
           <MiniLink href="/admin/config" label="Config" />
+          <MiniLink href="/access" label="Access" />
           <MiniLink href="/auth-test" label="Auth Test" />
         </div>
       </section>
@@ -80,7 +86,7 @@ function ActionCard(props: {
         <div className="mt-1 text-sm opacity-75">{props.description}</div>
       </div>
 
-      <div className="text-sm opacity-60 shrink-0">{"->"}</div>
+      <div className="text-sm opacity-60">{"->"}</div>
     </Link>
   );
 }

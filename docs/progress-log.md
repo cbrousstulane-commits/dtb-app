@@ -169,3 +169,14 @@ Implemented manual customer master-record management before import and merge wor
 - Added routes for `apps/web/src/app/admin/customers/page.tsx`, `apps/web/src/app/admin/customers/new/page.tsx`, and `apps/web/src/app/admin/customers/[customerId]/page.tsx`.
 - Kept this milestone manual-only: customer source defaults to `manual`, with no Square import or merge workflow yet.
 - Verified with `npm run build` from `apps/web`.
+## 2026-03-11 - Access and role linkage subtask
+
+### Summary
+Added a small access layer so matching Google emails can receive app access automatically at sign-in, while preserving the existing admin shell gating.
+
+### Completed
+- Added server-side Firebase Admin initialization and a `POST /api/auth/sync-role` route to assign managed claims from active captain or access-user records.
+- Extended captains with an `adminAccess` flag so a captain can either get captain-level site access or full admin access.
+- Added admin-managed non-captain access users under `apps/web/src/app/admin/users/**`.
+- Added `/access` as the signed-in non-admin landing page.
+- Updated login flow to sync claims immediately after Google sign-in and redirect by effective role.

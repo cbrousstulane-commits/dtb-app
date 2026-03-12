@@ -5,6 +5,7 @@ export type CaptainFormValues = {
   slug: string;
   email: string;
   authUid: string;
+  adminAccess: boolean;
   status: CaptainStatus;
   notes: string;
 };
@@ -27,6 +28,7 @@ export function emptyCaptainForm(): CaptainFormValues {
     slug: "",
     email: "",
     authUid: "",
+    adminAccess: false,
     status: "active",
     notes: "",
   };
@@ -36,7 +38,7 @@ export function slugify(value: string): string {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[\'’]/g, "")
+    .replace(/[\x27’]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
@@ -51,6 +53,7 @@ export function normalizeCaptainPayload(values: CaptainFormValues): CaptainRecor
     slug,
     email: values.email.trim().toLowerCase(),
     authUid: values.authUid.trim(),
+    adminAccess: values.adminAccess === true,
     status: values.status === "inactive" ? "inactive" : "active",
     notes: values.notes.trim(),
   };
@@ -64,6 +67,7 @@ export function toCaptainFormValues(
     slug: value?.slug ?? "",
     email: value?.email ?? "",
     authUid: value?.authUid ?? "",
+    adminAccess: value?.adminAccess === true,
     status: value?.status === "inactive" ? "inactive" : "active",
     notes: value?.notes ?? "",
   };

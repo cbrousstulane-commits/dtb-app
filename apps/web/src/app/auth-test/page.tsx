@@ -23,6 +23,9 @@ export default function AuthTestPage() {
   const [status, setStatus] = useState<Status>("loading");
   const [claims, setClaims] = useState<Record<string, unknown> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hasSiteAccess, setHasSiteAccess] = useState(false);
+  const [isCaptain, setIsCaptain] = useState(false);
+  const [role, setRole] = useState<string>("none");
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -31,6 +34,9 @@ export default function AuthTestPage() {
     const tokenResult = await getIdTokenResult(currentUser, forceRefresh);
     setClaims(tokenResult.claims as Record<string, unknown>);
     setIsAdmin(tokenResult.claims.admin === true);
+    setHasSiteAccess(tokenResult.claims.siteAccess === true || tokenResult.claims.admin === true);
+    setIsCaptain(tokenResult.claims.captain === true);
+    setRole(typeof tokenResult.claims.role === "string" ? tokenResult.claims.role : "none");
     setLastRefreshAt(new Date().toLocaleString());
   }
 
@@ -42,6 +48,9 @@ export default function AuthTestPage() {
       if (!nextUser) {
         setClaims(null);
         setIsAdmin(false);
+        setHasSiteAccess(false);
+        setIsCaptain(false);
+        setRole("none");
         setStatus("ready");
         return;
       }
@@ -51,6 +60,9 @@ export default function AuthTestPage() {
       } catch (error: unknown) {
         setClaims(null);
         setIsAdmin(false);
+        setHasSiteAccess(false);
+        setIsCaptain(false);
+        setRole("none");
         setMessage(`Failed to read claims: ${errorMessage(error)}`);
       } finally {
         setStatus("ready");
@@ -99,6 +111,9 @@ export default function AuthTestPage() {
             <Row label="Display name" value={user.displayName ?? "Unknown"} />
             <Row label="Email" value={user.email ?? "Unknown"} />
             <Row label="UID" value={user.uid} />
+            <Row label="Role" value={role} />
+            <Row label="Site access" value={String(hasSiteAccess)} />
+            <Row label="Captain claim" value={String(isCaptain)} />
             <Row label="Admin claim" value={String(isAdmin)} />
             <Row label="Last refreshed" value={lastRefreshAt ?? "Not yet refreshed"} />
           </section>
@@ -109,9 +124,9 @@ export default function AuthTestPage() {
               {JSON.stringify(claims ?? {}, null, 2)}
             </pre>
 
-            {!isAdmin ? (
+            {!hasSiteAccess ? (
               <div className="mt-3 text-sm text-amber-300">
-                Access denied: this ID token does not currently include `admin: true`.
+                Access denied: this ID token does not currently include recognized site-access claims.
               </div>
             ) : null}
           </section>
@@ -132,6 +147,13 @@ export default function AuthTestPage() {
                 className="h-12 px-4 rounded-xl border border-white/10 bg-white/5 active:bg-white/10 flex items-center"
               >
                 Go to /admin
+              </Link>
+
+              <Link
+                href="/access"
+                className="h-12 px-4 rounded-xl border border-white/10 bg-white/5 active:bg-white/10 flex items-center"
+              >
+                Go to /access
               </Link>
 
               <button

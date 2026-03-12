@@ -76,16 +76,13 @@ After each milestone or meaningful subtask:
 Follow the milestone order in `docs/roadmap.md`.
 
 Immediate order:
-1. Admin shell stabilization
-2. Boats CRUD v1
-3. Trip Types CRUD v1
-4. Customers CRUD v1
-5. Website Booking Import v1
-6. Customers Square CSV Import v1
-7. Customer Review / Merge v1
-8. Rate Tables v1
-9. Shared Activity Views v1
-10. Captain Access v1
-11. Operational Trip Assembly v1
-12. Trips / Operational Records v1
-13. Trip Logs and Maintenance Logs v1
+1. Core admin foundation and access linkage
+2. Website Booking Import v1
+3. Customers Square CSV Import v1
+4. Customer Review / Merge v1
+5. Rate Tables v1
+6. Shared Activity Views v1
+7. Captain Access v1
+8. Operational Trip Assembly v1
+9. Trips / Operational Records v1
+10. Trip Logs and Maintenance Logs v1

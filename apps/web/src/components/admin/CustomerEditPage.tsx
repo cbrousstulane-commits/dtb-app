@@ -68,7 +68,7 @@ export default function CustomerEditPage({ customerId }: CustomerEditPageProps) 
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm opacity-80">
+      <section className="rounded-[32px] bg-[#f8fafc] px-6 py-16 text-center text-sm text-slate-500 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80">
         Loading customer...
       </section>
     );
@@ -76,7 +76,7 @@ export default function CustomerEditPage({ customerId }: CustomerEditPageProps) 
 
   if (error) {
     return (
-      <section className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm">
+      <section className="rounded-[32px] bg-[#f8fafc] px-6 py-16 text-center text-sm text-red-600 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80">
         Failed to load customer: {error}
       </section>
     );
@@ -84,11 +84,12 @@ export default function CustomerEditPage({ customerId }: CustomerEditPageProps) 
 
   if (notFound) {
     return (
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-        <div className="text-lg font-semibold">Customer not found</div>
+      <section className="rounded-[32px] bg-[#f8fafc] px-6 py-12 text-center shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80">
+        <div className="text-2xl font-semibold text-slate-900">Customer not found</div>
+        <div className="mt-2 text-sm text-slate-500">That record does not exist or is no longer available.</div>
         <Link
           href="/admin/customers"
-          className="inline-flex h-12 px-4 rounded-xl border border-white/10 bg-white/5 active:bg-white/10 items-center"
+          className="mt-6 inline-flex h-12 items-center rounded-2xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-600 shadow-sm hover:border-slate-400 hover:text-slate-900"
         >
           Back to customers
         </Link>

@@ -6,20 +6,26 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "./cn";
 
-const PRIMARY_NAV = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/captains", label: "Captains" },
-  { href: "/admin/boats", label: "Boats" },
-  { href: "/admin/config", label: "Config" },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: (props: { active: boolean }) => React.ReactNode;
+};
+
+const PRIMARY_NAV: NavItem[] = [
+  { href: "/admin", label: "Dashboard", icon: GridIcon },
+  { href: "/admin/captains", label: "Captains", icon: UserBadgeIcon },
+  { href: "/admin/boats", label: "Boats", icon: BoatIcon },
+  { href: "/admin/bookings", label: "Bookings", icon: TicketIcon },
+  { href: "/admin/customers", label: "Customers", icon: UsersIcon },
+  { href: "/admin/lodge-rooms", label: "Rooms", icon: BedIcon },
+  { href: "/admin/trip-types", label: "Trip Types", icon: CompassIcon },
 ];
 
-const SECONDARY_NAV = [
-  { href: "/admin/lodge-rooms", label: "Lodge Rooms" },
-  { href: "/admin/trip-types", label: "Trip Types" },
-  { href: "/admin/customers", label: "Customers" },
-  { href: "/admin/bookings", label: "Bookings" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/auth-test", label: "Auth Test" },
+const SECONDARY_NAV: NavItem[] = [
+  { href: "/admin/users", label: "Users", icon: ShieldIcon },
+  { href: "/admin/config", label: "Settings", icon: GearIcon },
+  { href: "/auth-test", label: "Auth Test", icon: BoltIcon },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -31,135 +37,172 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
-  const title =
-    PRIMARY_NAV.find((item) => isActive(pathname, item.href))?.label ??
-    SECONDARY_NAV.find((item) => isActive(pathname, item.href))?.label ??
-    "Admin";
+  const activeItem = [...PRIMARY_NAV, ...SECONDARY_NAV].find((item) => isActive(pathname, item.href));
+  const title = activeItem?.label ?? "Admin";
 
   return (
-    <div className="min-h-dvh bg-black text-white">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/80 backdrop-blur">
-        <div className="mx-auto w-full max-w-screen-sm px-4 py-3 flex items-center justify-between">
-          <div className="min-w-0">
-            <div className="text-sm opacity-70">DTB Admin</div>
-            <div className="text-base font-semibold truncate">{title}</div>
-          </div>
+    <div className="min-h-dvh bg-[#d6e0eb] text-slate-900">
+      <div className="mx-auto flex min-h-dvh w-full max-w-[1600px] gap-0 px-0 lg:px-6 lg:py-6">
+        <aside className="hidden w-[278px] shrink-0 lg:block">
+          <Sidebar pathname={pathname} title={title} onNavigate={undefined} />
+        </aside>
 
-          <button
-            type="button"
-            className="h-11 px-4 rounded-xl border border-white/10 bg-white/5 active:bg-white/10"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open menu"
-          >
-            Menu
-          </button>
-        </div>
-      </header>
-
-      <main
-        className={cn(
-          "mx-auto w-full max-w-screen-sm px-4 pt-4",
-          "pb-[calc(env(safe-area-inset-bottom)+88px)]",
-        )}
-      >
-        {children}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-black/80 backdrop-blur">
-        <div className="mx-auto w-full max-w-screen-sm px-2 py-2">
-          <div className="grid grid-cols-4 gap-2">
-            {PRIMARY_NAV.map((item) => {
-              const active = isActive(pathname, item.href);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "h-12 rounded-xl flex items-center justify-center text-sm border",
-                    active
-                      ? "border-white/25 bg-white/10"
-                      : "border-white/10 bg-white/5 active:bg-white/10",
-                  )}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
-
-      {menuOpen ? (
-        <div className="fixed inset-0 z-50">
-          <button
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setMenuOpen(false)}
-            aria-label="Close menu"
-          />
-
-          <div className="absolute right-0 top-0 h-full w-[85%] max-w-sm border-l border-white/10 bg-black p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold">Menu</div>
+        <div className="flex min-h-dvh flex-1 flex-col lg:min-h-0">
+          <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-[#d6e0eb]/90 backdrop-blur lg:hidden">
+            <div className="flex items-center justify-between px-4 py-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">DTB Admin</div>
+                <div className="mt-1 text-xl font-semibold text-slate-900">{title}</div>
+              </div>
               <button
-                className="h-11 px-4 rounded-xl border border-white/10 bg-white/5 active:bg-white/10"
-                onClick={() => setMenuOpen(false)}
+                type="button"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm"
+                onClick={() => setMenuOpen(true)}
+                aria-label="Open navigation menu"
               >
-                Close
+                <MenuIcon />
               </button>
             </div>
+          </header>
 
-            <div className="mt-4 space-y-2">
-              <div className="text-xs uppercase tracking-wider opacity-60">Primary</div>
+          <main className="flex-1 px-4 py-4 sm:px-6 lg:px-0 lg:py-0">{children}</main>
+        </div>
+      </div>
 
-              {PRIMARY_NAV.map((item) => {
-                const active = isActive(pathname, item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMenuOpen(false)}
-                    className={cn(
-                      "block h-12 rounded-xl px-4 flex items-center border",
-                      active
-                        ? "border-white/25 bg-white/10"
-                        : "border-white/10 bg-white/5 active:bg-white/10",
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-
-            <div className="mt-6 space-y-2">
-              <div className="text-xs uppercase tracking-wider opacity-60">Secondary</div>
-
-              {SECONDARY_NAV.map((item) => {
-                const active = isActive(pathname, item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMenuOpen(false)}
-                    className={cn(
-                      "block h-12 rounded-xl px-4 flex items-center border",
-                      active
-                        ? "border-white/25 bg-white/10"
-                        : "border-white/10 bg-white/5 active:bg-white/10",
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
+      {menuOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-950/45"
+            aria-label="Close navigation menu"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className="absolute inset-y-0 left-0 w-[86%] max-w-[320px] p-3">
+            <Sidebar pathname={pathname} title={title} onNavigate={() => setMenuOpen(false)} />
           </div>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function Sidebar(props: {
+  pathname: string;
+  title: string;
+  onNavigate?: () => void;
+}) {
+  return (
+    <div className="flex h-full min-h-[calc(100dvh-3rem)] flex-col rounded-[32px] bg-[#f8fafc] p-4 shadow-[0_24px_80px_rgba(15,23,42,0.12)] ring-1 ring-slate-200/80 lg:min-h-full">
+      <div className="flex items-center gap-3 rounded-2xl px-3 py-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#111827] text-sm font-black tracking-[0.2em] text-white">
+          DTB
+        </div>
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Dash to Boat</div>
+          <div className="text-base font-semibold text-slate-900">{props.title}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-1">
+        {PRIMARY_NAV.map((item) => (
+          <NavLink key={item.href} item={item} pathname={props.pathname} onNavigate={props.onNavigate} />
+        ))}
+      </div>
+
+      <div className="mt-6 border-t border-slate-200 pt-6">
+        <div className="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">System</div>
+        <div className="mt-2 space-y-1">
+          {SECONDARY_NAV.map((item) => (
+            <NavLink key={item.href} item={item} pathname={props.pathname} onNavigate={props.onNavigate} />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-auto rounded-[24px] bg-slate-900 px-4 py-4 text-white">
+        <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Admin Session</div>
+        <div className="mt-2 text-sm font-medium">Shared admin shell active</div>
+        <div className="mt-1 text-sm text-slate-300">Use the mobile hamburger menu on smaller screens.</div>
+      </div>
+    </div>
+  );
+}
+
+function NavLink(props: { item: NavItem; pathname: string; onNavigate?: () => void }) {
+  const active = isActive(props.pathname, props.item.href);
+  return (
+    <Link
+      href={props.item.href}
+      onClick={props.onNavigate}
+      className={cn(
+        "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition-colors",
+        active ? "bg-[#f2e7cf] text-[#8b5e12]" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+      )}
+      aria-current={active ? "page" : undefined}
+    >
+      <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl border", active ? "border-[#e7c98b] bg-[#f8efd9]" : "border-slate-200 bg-white")}>
+        {props.item.icon({ active })}
+      </span>
+      <span>{props.item.label}</span>
+    </Link>
+  );
+}
+
+function iconClass(active: boolean) {
+  return active ? "stroke-[#8b5e12]" : "stroke-slate-500";
+}
+
+function GridIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></SvgBox>;
+}
+
+function UserBadgeIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 7a7 7 0 0 1 14 0" /></SvgBox>;
+}
+
+function BoatIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M3 13l9-4 9 4M5 13v4h14v-4M7 17c1 2 2.5 3 5 3s4-1 5-3" /></SvgBox>;
+}
+
+function TicketIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M5 7h14v4a2 2 0 0 0 0 4v4H5v-4a2 2 0 0 0 0-4V7Zm4 0v12" /></SvgBox>;
+}
+
+function UsersIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M9 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7 1a3 3 0 1 0 0-6M4 19a5 5 0 0 1 10 0M15 19a4 4 0 0 1 5 0" /></SvgBox>;
+}
+
+function BedIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M4 12V7h5a3 3 0 0 1 3 3v2M4 12h16v5H4zM16 12V9a2 2 0 1 1 4 0v3" /></SvgBox>;
+}
+
+function CompassIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><circle cx="12" cy="12" r="8" /><path d="m10 14 4-8-2 6 6 2-8 4Z" /></SvgBox>;
+}
+
+function ShieldIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M12 4 5 7v5c0 4.5 2.9 7 7 8 4.1-1 7-3.5 7-8V7l-7-3Z" /></SvgBox>;
+}
+
+function GearIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm7.5 3.5-1.9.7a6 6 0 0 1-.5 1.2l.8 1.8-1.7 1.7-1.8-.8a6 6 0 0 1-1.2.5l-.7 1.9h-2.4l-.7-1.9a6 6 0 0 1-1.2-.5l-1.8.8-1.7-1.7.8-1.8a6 6 0 0 1-.5-1.2L4.5 12v-2.4l1.9-.7a6 6 0 0 1 .5-1.2l-.8-1.8 1.7-1.7 1.8.8a6 6 0 0 1 1.2-.5l.7-1.9h2.4l.7 1.9a6 6 0 0 1 1.2.5l1.8-.8 1.7 1.7-.8 1.8c.2.4.4.8.5 1.2l1.9.7Z" /></SvgBox>;
+}
+
+function BoltIcon({ active }: { active: boolean }) {
+  return <SvgBox className={iconClass(active)}><path d="M13 2 6 13h5l-1 9 8-12h-5l0-8Z" /></SvgBox>;
+}
+
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SvgBox(props: { children: React.ReactNode; className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={cn("h-4.5 w-4.5", props.className)}>
+      {props.children}
+    </svg>
   );
 }

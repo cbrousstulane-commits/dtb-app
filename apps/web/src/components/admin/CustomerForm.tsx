@@ -96,89 +96,102 @@ export default function CustomerForm({ mode, customerId, initialValues, existing
   }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="text-lg font-semibold">{mode === "create" ? "New Customer" : "Edit Customer"}</div>
-        <div className="mt-1 text-sm opacity-75">
-          Customers are the admin-managed master record that later imports and day-of workflows will reference.
+    <div className="py-2 lg:py-8">
+      <div className="fixed inset-0 hidden bg-slate-950/25 backdrop-blur-[2px] lg:block" aria-hidden="true" />
+      <div className="relative mx-auto max-w-3xl rounded-[32px] bg-[#f8fafc] shadow-[0_24px_80px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/80">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 sm:px-7">
+          <div>
+            <div className="text-2xl font-semibold tracking-tight text-slate-900">Customers</div>
+            <div className="mt-2 text-sm text-slate-500">{mode === "create" ? "Add a new customer record." : "Update the customer master record."}</div>
+          </div>
+          <Link
+            href="/admin/customers"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:border-slate-300 hover:text-slate-800"
+            aria-label="Close customer form"
+          >
+            <CloseIcon />
+          </Link>
         </div>
-      </section>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
-          <Field
-            label="Full name"
-            value={form.fullName}
-            placeholder="Taylor Landry"
-            onChange={(value) => setForm((prev) => ({ ...prev, fullName: value }))}
-            disabled={saving}
-          />
-
-          <Field
-            label="Email"
-            value={form.email}
-            placeholder="customer@example.com"
-            inputMode="email"
-            onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
-            disabled={saving}
-          />
-
-          <Field
-            label="Phone"
-            value={form.phone}
-            placeholder="(504) 555-1234"
-            inputMode="tel"
-            onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))}
-            disabled={saving}
-          />
-
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Source</div>
-            <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm opacity-80">
-              {existingRecord?.source ?? "manual"}
+        <form onSubmit={handleSubmit} className="space-y-8 px-6 py-6 sm:px-7 sm:py-7">
+          <section className="space-y-4">
+            <div className="text-sm font-semibold text-slate-900">General</div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                <AvatarIcon />
+              </div>
+              <div className="inline-flex h-11 items-center rounded-2xl border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 shadow-sm">
+                Profile placeholder
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Status</div>
-            <div className="grid grid-cols-2 gap-2">
-              <StatusButton
-                active={form.status === "active"}
-                label="Active"
-                onClick={() => setForm((prev) => ({ ...prev, status: "active" }))}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Full Name"
+                value={form.fullName}
+                placeholder="Taylor Landry"
+                onChange={(value) => setForm((prev) => ({ ...prev, fullName: value }))}
                 disabled={saving}
               />
-              <StatusButton
-                active={form.status === "inactive"}
-                label="Inactive"
-                onClick={() => setForm((prev) => ({ ...prev, status: "inactive" }))}
+              <StatusSelect value={form.status} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} disabled={saving} />
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <div className="text-sm font-semibold text-slate-900">Contact</div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Phone Number"
+                value={form.phone}
+                placeholder="(504) 555-1234"
+                inputMode="tel"
+                onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))}
+                disabled={saving}
+              />
+              <Field
+                label="Email Address"
+                value={form.email}
+                placeholder="customer@example.com"
+                inputMode="email"
+                onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
                 disabled={saving}
               />
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="flex gap-3">
+          <section className="space-y-4">
+            <div className="text-sm font-semibold text-slate-900">Record Details</div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ReadOnlyField label="Source" value={existingRecord?.source ?? "manual"} />
+              <ReadOnlyField
+                label="Match Status"
+                value={existingRecord?.customerMatchStatus ?? "unresolved"}
+              />
+            </div>
+            {existingRecord?.additionalNames && existingRecord.additionalNames.length > 0 ? (
+              <ReadOnlyField label="Additional Names" value={existingRecord.additionalNames.join(", ")} />
+            ) : null}
+          </section>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-end">
+            <Link
+              href="/admin/customers"
+              className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-slate-400 hover:text-slate-900"
+            >
+              Cancel
+            </Link>
             <button
               type="submit"
               disabled={saving}
-              className="h-12 px-4 rounded-xl border border-white/20 bg-white text-black font-medium disabled:opacity-60"
+              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#d8a641] px-5 text-sm font-semibold text-slate-900 shadow-[0_12px_24px_rgba(216,166,65,0.26)] transition hover:bg-[#c9922a] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {saving ? "Saving..." : mode === "create" ? "Create customer" : "Save changes"}
+              {saving ? "Saving..." : mode === "create" ? "Add Customer" : "Save Customer"}
             </button>
-
-            <Link
-              href="/admin/customers"
-              className="h-12 px-4 rounded-xl border border-white/10 bg-white/5 active:bg-white/10 flex items-center"
-            >
-              Back to customers
-            </Link>
           </div>
 
-          {statusMessage ? <div className="mt-3 text-sm opacity-80">{statusMessage}</div> : null}
-        </section>
-      </form>
+          {statusMessage ? <div className="text-sm text-slate-500">{statusMessage}</div> : null}
+        </form>
+      </div>
     </div>
   );
 }
@@ -193,37 +206,63 @@ function Field(props: {
 }) {
   return (
     <label className="block space-y-2">
-      <div className="text-sm font-medium">{props.label}</div>
+      <div className="text-sm font-medium text-slate-700">{props.label}</div>
       <input
         value={props.value}
         placeholder={props.placeholder}
         inputMode={props.inputMode}
         disabled={props.disabled}
         onChange={(event) => props.onChange(event.target.value)}
-        className="h-12 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-base outline-none focus:border-white/25 disabled:opacity-60"
+        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm outline-none transition focus:border-slate-300 disabled:opacity-60"
       />
     </label>
   );
 }
 
-function StatusButton(props: {
-  active: boolean;
-  label: string;
+function ReadOnlyField(props: { label: string; value: string }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium text-slate-700">{props.label}</div>
+      <div className="min-h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 shadow-sm">
+        {props.value}
+      </div>
+    </div>
+  );
+}
+
+function StatusSelect(props: {
+  value: CustomerFormValues["status"];
   disabled?: boolean;
-  onClick: () => void;
+  onChange: (value: CustomerFormValues["status"]) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      disabled={props.disabled}
-      className={[
-        "h-12 rounded-xl border text-sm font-medium",
-        props.active ? "border-white/25 bg-white/10" : "border-white/10 bg-white/5 active:bg-white/10",
-        props.disabled ? "opacity-60" : "",
-      ].join(" ")}
-    >
-      {props.label}
-    </button>
+    <label className="block space-y-2">
+      <div className="text-sm font-medium text-slate-700">Status</div>
+      <select
+        value={props.value}
+        disabled={props.disabled}
+        onChange={(event) => props.onChange(event.target.value === "inactive" ? "inactive" : "active")}
+        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm outline-none transition focus:border-slate-300 disabled:opacity-60"
+      >
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </label>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AvatarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-8 w-8">
+      <path d="M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 7a6 6 0 0 1 12 0" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

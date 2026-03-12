@@ -199,3 +199,13 @@ Clarified the website-booking import guidance before parser work begins so the n
 - Updated Milestone 5 in `docs/roadmap.md` to require raw imported row preservation before normalized booking records.
 - Added explicit unresolved/match-metadata expectations for uncertain customer and trip-type linkage.
 - Updated `docs/dev-workflow.md` to make raw preservation and no-forced-match rules explicit for import work.
+## 2026-03-11 - Square customer reconciliation rules
+
+### Summary
+Locked the intended Square customer matching behavior before import implementation so the importer can automate the safe cases and isolate only real anomalies for admin review.
+
+### Completed
+- Matching email or phone is now the explicit auto-reconcile rule for Square customer imports.
+- Last-name-only similarity without matching email or phone is now an explicit review case.
+- Additional discovered names should be preserved under `additionalNames` on the customer record.
+- Review anomalies should surface once in admin until resolved rather than repeatedly reappearing on each import.

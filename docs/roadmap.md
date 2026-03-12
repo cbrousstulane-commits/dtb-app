@@ -225,11 +225,15 @@ Website bookings are imperfect identity data. Import should preserve the raw boo
 - email
 - phone
 
+Square customer import should auto-match when email matches or phone matches.
+
 ### Secondary Identifiers
 - normalized full name
 - booking date proximity
 - overlapping lodge/trip dates
 - shared external booking/order identifiers
+
+If the last name matches without a matching email or phone number, the import should flag the record for review instead of auto-merging.
 
 ### Match Outcome States
 Each import/customer match should land in one of these states:
@@ -439,18 +443,23 @@ Out of scope:
 
 ### Milestone 6 - Customers Square CSV Import v1
 Goal:
-- Import Square customers into the customer master record.
+- Reconcile Square customer exports into the customer master record with as much safe automation as possible.
 
 Scope:
 - Square CSV import flow
 - import preview
+- import runs and raw imported row preservation
 - import upsert behavior
-- review imported customer records
+- automatic matching by email or phone
+- review records for last-name-only similarity or other uncertain cases
+- carry additional discovered names into dditionalNames`r
 
 Done when:
 - admin can import customers from Square CSV
-- import avoids obvious duplicates where a stable identifier exists
-- imported customers are reviewable in admin
+- matching email or phone auto-reconciles into the existing customer when safe
+- uncertain cases surface once for review instead of duplicating noise across runs
+- additional discovered names are preserved on the customer record
+- imported rows are auditable by import run
 
 Out of scope:
 - direct live Square API sync

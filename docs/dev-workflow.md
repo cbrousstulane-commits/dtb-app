@@ -75,6 +75,11 @@ After each milestone or meaningful subtask:
   - preserve raw source rows before normalization
   - do not discard unmapped source fields during early import versions
   - do not force uncertain customer, trip-type, boat, or captain matches
+- For customer imports:
+  - matching email or phone may auto-reconcile
+  - last-name-only similarity must go to review
+  - preserve newly discovered alternate names under dditionalNames`r
+  - keep review noise deduplicated so the same anomaly is not repeatedly re-raised
 
 ## Current Priority
 Follow the milestone order in `docs/roadmap.md`.

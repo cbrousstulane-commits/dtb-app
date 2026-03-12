@@ -4,8 +4,8 @@ import Link from "next/link";
 import React from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
+import { CustomerRecord, customersCollectionPath, normalizeAdditionalNames } from "@/lib/admin/customers";
 import { db } from "@/lib/firebase/client";
-import { CustomerRecord, customersCollectionPath } from "@/lib/admin/customers";
 
 type CustomerListItem = CustomerRecord & {
   id: string;
@@ -39,11 +39,15 @@ export default function CustomersList() {
             id: docSnap.id,
             fullName: data.fullName ?? "",
             fullNameLower: data.fullNameLower ?? "",
+            additionalNames: normalizeAdditionalNames(data.additionalNames),
             email: data.email ?? "",
             phone: data.phone ?? "",
             source: data.source ?? "manual",
             squareCustomerId: data.squareCustomerId ?? "",
             websiteCustomerId: data.websiteCustomerId ?? "",
+            customerMatchStatus: data.customerMatchStatus ?? "unresolved",
+            squareImportLastRunId: data.squareImportLastRunId ?? "",
+            squareImportUpdatedAt: data.squareImportUpdatedAt ?? "",
             status: data.status === "inactive" ? "inactive" : data.status === "merged" ? "merged" : "active",
             mergedIntoCustomerId: data.mergedIntoCustomerId ?? "",
             createdAt: data.createdAt,
@@ -78,12 +82,20 @@ export default function CustomersList() {
             </div>
           </div>
 
-          <Link
-            href="/admin/customers/new"
-            className="h-12 px-4 rounded-xl border border-white/20 bg-white text-black font-medium flex items-center shrink-0"
-          >
-            New customer
-          </Link>
+          <div className="flex gap-3 shrink-0">
+            <Link
+              href="/admin/customers/import-square"
+              className="h-12 px-4 rounded-xl border border-white/10 bg-white/5 active:bg-white/10 flex items-center"
+            >
+              Import Square CSV
+            </Link>
+            <Link
+              href="/admin/customers/new"
+              className="h-12 px-4 rounded-xl border border-white/20 bg-white text-black font-medium flex items-center"
+            >
+              New customer
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -153,6 +165,8 @@ function CustomerRow({ item }: { item: CustomerListItem }) {
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <Pill label={item.status === "active" ? "Active" : "Inactive"} />
             <Pill label={item.source === "manual" ? "Manual" : item.source} />
+            {item.customerMatchStatus !== "unresolved" ? <Pill label={`match: ${item.customerMatchStatus}`} /> : null}
+            {item.additionalNames.length > 0 ? <Pill label={`aliases: ${item.additionalNames.length}`} /> : null}
             {item.phone ? <Pill label={item.phone} /> : null}
           </div>
         </div>

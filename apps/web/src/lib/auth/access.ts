@@ -10,6 +10,8 @@ export type ManagedAccessClaims = {
   accessUserId?: string;
 };
 
+export const OWNER_ADMIN_EMAILS = ["cbrousstulane@gmail.com"] as const;
+
 export const MANAGED_ACCESS_CLAIM_KEYS = [
   "siteAccess",
   "admin",
@@ -19,6 +21,12 @@ export const MANAGED_ACCESS_CLAIM_KEYS = [
   "captainId",
   "accessUserId",
 ] as const;
+
+export function isOwnerAdminEmail(email: string | null | undefined) {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  return OWNER_ADMIN_EMAILS.includes(normalized as (typeof OWNER_ADMIN_EMAILS)[number]);
+}
 
 export function buildManagedAccessClaims(input: {
   role: AccessRole;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 
-import { buildManagedAccessClaims, mergeManagedAccessClaims } from "@/lib/auth/access";
+import { buildManagedAccessClaims, isOwnerAdminEmail, mergeManagedAccessClaims } from "@/lib/auth/access";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 
 type CaptainMatch = {
@@ -90,13 +90,16 @@ export async function POST(request: NextRequest) {
       adminAuth.getUser(decoded.uid),
     ]);
 
-    const effectiveRole = captainMatch
-      ? captainMatch.adminAccess
-        ? "admin"
-        : "captain"
-      : accessUserMatch
-        ? accessUserMatch.role
-        : "none";
+    const ownerAdmin = isOwnerAdminEmail(email);
+    const effectiveRole = ownerAdmin
+      ? "admin"
+      : captainMatch
+        ? captainMatch.adminAccess
+          ? "admin"
+          : "captain"
+        : accessUserMatch
+          ? accessUserMatch.role
+          : "none";
 
     const managedClaims = buildManagedAccessClaims({
       role: effectiveRole,

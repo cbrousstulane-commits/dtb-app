@@ -25,6 +25,9 @@ export default function CustomersList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [items, setItems] = React.useState<CustomerListItem[]>([]);
+  const [search, setSearch] = React.useState("");
+  const [activePage, setActivePage] = React.useState(1);
+  const [inactivePage, setInactivePage] = React.useState(1);
 
   React.useEffect(() => {
     const q = query(collection(db, ...customersCollectionPath), orderBy("fullName"));
@@ -68,8 +71,25 @@ export default function CustomersList() {
     return () => unsubscribe();
   }, []);
 
-  const activeCustomers = items.filter((item) => item.status === "active");
-  const inactiveCustomers = items.filter((item) => item.status === "inactive");
+  React.useEffect(() => {
+    setActivePage(1);
+    setInactivePage(1);
+  }, [search]);
+
+  const searchTerm = search.trim().toLowerCase();
+  const filteredItems = React.useMemo(() => {
+    if (!searchTerm) return items;
+
+    return items.filter((item) => {
+      const haystacks = [item.fullName, item.email, item.phone];
+      return haystacks.some((value) => value.toLowerCase().includes(searchTerm));
+    });
+  }, [items, searchTerm]);
+
+  const sortedItems = React.useMemo(() => [...filteredItems].sort(compareCustomers), [filteredItems]);
+
+  const activeCustomers = sortedItems.filter((item) => item.status === "active");
+  const inactiveCustomers = sortedItems.filter((item) => item.status === "inactive");
 
   return (
     <div className="space-y-4">
@@ -102,6 +122,17 @@ export default function CustomersList() {
           <SummaryCard label="Active" value={String(activeCustomers.length)} />
           <SummaryCard label="Inactive" value={String(inactiveCustomers.length)} />
         </div>
+
+        <label className="mt-4 block space-y-2">
+          <div className="text-sm font-medium">Search customers</div>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search name, email, or phone"
+            className="h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-sm outline-none placeholder:text-white/40"
+          />
+        </label>
       </section>
 
       {loading ? (
@@ -114,8 +145,20 @@ export default function CustomersList() {
         </section>
       ) : (
         <>
-          <CustomerSection title="Active customers" items={activeCustomers} emptyLabel="No active customers yet." />
-          <CustomerSection title="Inactive customers" items={inactiveCustomers} emptyLabel="No inactive customers." />
+          <CustomerSection
+            title="Active customers"
+            items={activeCustomers}
+            emptyLabel="No active customers yet."
+            page={activePage}
+            onPageChange={setActivePage}
+          />
+          <CustomerSection
+            title="Inactive customers"
+            items={inactiveCustomers}
+            emptyLabel="No inactive customers."
+            page={inactivePage}
+            onPageChange={setInactivePage}
+          />
         </>
       )}
     </div>
@@ -135,18 +178,54 @@ function CustomerSection(props: {
   title: string;
   items: CustomerListItem[];
   emptyLabel: string;
+  page: number;
+  onPageChange: (page: number) => void;
 }) {
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(props.items.length / pageSize));
+  const currentPage = Math.min(props.page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const pageItems = props.items.slice(startIndex, startIndex + pageSize);
+
   return (
     <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="text-sm font-semibold">{props.title}</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold">{props.title}</div>
+        {props.items.length > 0 ? (
+          <div className="text-xs opacity-60">
+            Page {currentPage} of {totalPages}
+          </div>
+        ) : null}
+      </div>
 
       <div className="mt-3 space-y-3">
         {props.items.length === 0 ? (
           <div className="text-sm opacity-70">{props.emptyLabel}</div>
         ) : (
-          props.items.map((item) => <CustomerRow key={item.id} item={item} />)
+          pageItems.map((item) => <CustomerRow key={item.id} item={item} />)
         )}
       </div>
+
+      {props.items.length > pageSize ? (
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => props.onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="h-10 rounded-xl border border-white/10 bg-black/20 px-4 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => props.onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="h-10 rounded-xl border border-white/10 bg-black/20 px-4 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -178,9 +257,15 @@ function CustomerRow({ item }: { item: CustomerListItem }) {
 }
 
 function Pill({ label }: { label: string }) {
-  return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-      {label}
-    </span>
-  );
+  return <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">{label}</span>;
+}
+
+function compareCustomers(a: CustomerListItem, b: CustomerListItem) {
+  const aName = a.fullName.trim();
+  const bName = b.fullName.trim();
+
+  if (!aName && bName) return 1;
+  if (aName && !bName) return -1;
+
+  return aName.localeCompare(bName, undefined, { sensitivity: "base" });
 }

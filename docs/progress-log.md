@@ -180,3 +180,22 @@ Added a small access layer so matching Google emails can receive app access auto
 - Added admin-managed non-captain access users under `apps/web/src/app/admin/users/**`.
 - Added `/access` as the signed-in non-admin landing page.
 - Updated login flow to sync claims immediately after Google sign-in and redirect by effective role.
+## 2026-03-11 - Website booking data shell
+
+### Summary
+Added the internal booking-import data shell ahead of the CSV pipeline so the app now has stable collection shapes and an admin landing page for imported booking records.
+
+### Completed
+- Added shared helper/types for `bookingImportRuns`, `bookingGroups`, and `bookingItems` at `apps/web/src/lib/admin/websiteBookings.ts`.
+- Added the admin overview page at `apps/web/src/app/admin/bookings/page.tsx` with `apps/web/src/components/admin/WebsiteBookingsOverview.tsx`.
+- Added booking-shell navigation entry points in the admin dashboard and shared admin shell.
+- Left the actual CSV parser/import pipeline out of scope for this pass.
+## 2026-03-11 - Import guidance tightened
+
+### Summary
+Clarified the website-booking import guidance before parser work begins so the next pass starts from raw-source preservation rather than direct normalization assumptions.
+
+### Completed
+- Updated Milestone 5 in `docs/roadmap.md` to require raw imported row preservation before normalized booking records.
+- Added explicit unresolved/match-metadata expectations for uncertain customer and trip-type linkage.
+- Updated `docs/dev-workflow.md` to make raw preservation and no-forced-match rules explicit for import work.

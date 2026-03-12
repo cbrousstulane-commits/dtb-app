@@ -17,6 +17,7 @@ const SECONDARY_NAV = [
   { href: "/admin/lodge-rooms", label: "Lodge Rooms" },
   { href: "/admin/trip-types", label: "Trip Types" },
   { href: "/admin/customers", label: "Customers" },
+  { href: "/admin/bookings", label: "Bookings" },
   { href: "/admin/users", label: "Users" },
   { href: "/auth-test", label: "Auth Test" },
 ];

@@ -71,6 +71,10 @@ After each milestone or meaningful subtask:
 - Do not assume one imported booking row equals one complete trip
 - Do not force ambiguous customer matches into auto-merges
 - Ambiguous matches should survive import and be reviewable later
+- For import work:
+  - preserve raw source rows before normalization
+  - do not discard unmapped source fields during early import versions
+  - do not force uncertain customer, trip-type, boat, or captain matches
 
 ## Current Priority
 Follow the milestone order in `docs/roadmap.md`.

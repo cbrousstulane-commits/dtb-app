@@ -41,6 +41,11 @@ export default function AdminDashboardPage() {
           title="Customers"
           description="Manage the customer master record before import and merge flows arrive."
         />
+        <ActionCard
+          href="/admin/bookings"
+          title="Bookings"
+          description="Review the website booking data shell before the CSV import flow is wired up."
+        />
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -53,8 +58,9 @@ export default function AdminDashboardPage() {
           <div>4. Trip types CRUD</div>
           <div>5. Customers CRUD</div>
           <div>6. Access and role linkage</div>
-          <div>7. Trip logs</div>
-          <div>8. Maintenance logs</div>
+          <div>7. Website booking import shell</div>
+          <div>8. Trip logs</div>
+          <div>9. Maintenance logs</div>
         </div>
       </section>
 
@@ -63,6 +69,7 @@ export default function AdminDashboardPage() {
 
         <div className="mt-3 grid gap-2">
           <MiniLink href="/admin/config" label="Config" />
+          <MiniLink href="/admin/bookings" label="Bookings" />
           <MiniLink href="/access" label="Access" />
           <MiniLink href="/auth-test" label="Auth Test" />
         </div>

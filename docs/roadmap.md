@@ -60,6 +60,7 @@ Use separate first-class collections. Do not collapse these into one generic inv
 - lodgeRooms
 - customers
 - tripTypes
+- accessUsers
 
 ### Rate / Pricing Collections
 - boatTripTypeRates
@@ -100,6 +101,17 @@ Core fields:
 - createdAt
 - updatedAt
 
+
+### Access User
+Core fields:
+- id
+- fullName
+- email
+- authUid (optional until first sign-in)
+- role (`user | admin`)
+- status (`active | inactive`)
+- createdAt
+- updatedAt
 ### Lodge Room
 Core fields:
 - id
@@ -301,14 +313,14 @@ Examples:
 - Google Auth exists.
 - Admin claim gating exists.
 - `/auth-test` exists and is used for token/claim inspection.
-- Captains CRUD is partially implemented.
+- Captains CRUD is implemented with Google-email linkage and per-captain admin access.
 - Boats CRUD v1 is implemented with list, create, edit, active/inactive status, and primary captain assignment.
 - Lodge rooms CRUD v1 is implemented with list, create, edit, active/inactive status, and an 8-room cap.
 - Customers CRUD v1 is implemented with manual list, create, edit, and active/inactive status.
 - Trip types CRUD v1 is implemented with list, create, edit, durationHours, and active/inactive status.
 - Non-captain access users CRUD is implemented for limited user/admin access by Google email.
 - `/access` exists as the signed-in non-admin landing page.
-- Website booking import is not implemented yet.
+- Website booking import is not implemented yet, but the internal booking-shell types/paths and /admin/bookings overview are now in place.
 - Shared activity/date-range views are not implemented yet.
 - Captain portal is not implemented yet.
 
@@ -401,20 +413,24 @@ Out of scope:
 
 ### Milestone 5 - Website Booking Import v1
 Goal:
-- Import website bookings from CSV as booking groups and booking items.
+- Import website bookings from CSV while preserving raw source data first, then materializing booking groups and booking items safely.
 
 Scope:
 - CSV import flow
 - import runs log
+- raw imported row preservation for audit/debug
 - bookingGroups
 - bookingItems
+- unresolved/match-status metadata where customer or trip-type linkage is uncertain
 - support new bookings
 - support modifications/cancellations by status changes
 - idempotent upsert behavior where stable external IDs exist
 
 Done when:
 - admin can import website CSV data
-- imported data is preserved as raw booking groups/items
+- imported source rows are preserved before normalization
+- imported data is preserved as raw booking groups/items without dropping unmapped fields
+- uncertain matches survive import without unsafe forced links
 - cancellations do not delete historical imported records
 
 Out of scope:

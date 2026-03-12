@@ -2,24 +2,20 @@ import Link from "next/link";
 
 export default function AdminDashboardPage() {
   return (
-    <div className="space-y-4">
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="text-lg font-semibold">DTB Admin Dashboard</div>
-        <div className="mt-1 text-sm opacity-75">
-          Website data remains the forward-looking public source of truth. This admin app is being shaped as the retrospective operational record for captains, boats, trip types, rooms, customers, trips, and maintenance.
+    <div className="space-y-6 lg:space-y-8">
+      <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7">
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Dashboard</div>
+        <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">DTB Admin Dashboard</div>
+        <div className="mt-3 max-w-3xl text-sm text-slate-500">
+          Website data remains the forward-looking public source of truth. This admin app is the retrospective operational record for customers, boats, rooms, bookings, and internal settings.
         </div>
       </section>
 
-      <section className="grid gap-3">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <ActionCard
-          href="/admin/captains"
-          title="Captains"
-          description="Create, edit, deactivate, and manage captain site/admin access through Google email."
-        />
-        <ActionCard
-          href="/admin/users"
-          title="Users"
-          description="Manage non-captain Google-email access records for staff and admin users."
+          href="/admin/customers"
+          title="Customers"
+          description="Search, manage, and review the customer master record."
         />
         <ActionCard
           href="/admin/boats"
@@ -32,46 +28,38 @@ export default function AdminDashboardPage() {
           description="Manage the 8 nightly room units as individual inventory records."
         />
         <ActionCard
-          href="/admin/trip-types"
-          title="Trip Types"
-          description="Define trip durations in hours for the admin catalog."
-        />
-        <ActionCard
-          href="/admin/customers"
-          title="Customers"
-          description="Manage the customer master record before import and merge flows arrive."
-        />
-        <ActionCard
           href="/admin/bookings"
           title="Bookings"
-          description="Review the website booking data shell before the CSV import flow is wired up."
+          description="Review the website booking shell and future import history."
+        />
+        <ActionCard
+          href="/admin/config"
+          title="Settings"
+          description="Trip types, captains, users, and data import/export now live here."
         />
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="text-sm font-semibold">Build sequence</div>
-
-        <div className="mt-3 space-y-2 text-sm opacity-80">
-          <div>1. Captains CRUD</div>
+      <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7">
+        <div className="text-sm font-semibold text-slate-900">Build sequence</div>
+        <div className="mt-4 grid gap-2 text-sm text-slate-500 md:grid-cols-2">
+          <div>1. Admin shell stabilization</div>
           <div>2. Boats CRUD with primary captain relationship</div>
           <div>3. Lodge rooms CRUD</div>
           <div>4. Trip types CRUD</div>
           <div>5. Customers CRUD</div>
           <div>6. Access and role linkage</div>
-          <div>7. Website booking import shell</div>
-          <div>8. Trip logs</div>
-          <div>9. Maintenance logs</div>
+          <div>7. Website booking shell</div>
+          <div>8. Square customer CSV import</div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="text-sm font-semibold">System</div>
-
-        <div className="mt-3 grid gap-2">
-          <MiniLink href="/admin/config" label="Config" />
-          <MiniLink href="/admin/bookings" label="Bookings" />
+      <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7">
+        <div className="text-sm font-semibold text-slate-900">System</div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <MiniLink href="/admin/config" label="Settings" />
           <MiniLink href="/access" label="Access" />
           <MiniLink href="/auth-test" label="Auth Test" />
+          <MiniLink href="/admin/users" label="Users" />
         </div>
       </section>
     </div>
@@ -86,14 +74,11 @@ function ActionCard(props: {
   return (
     <Link
       href={props.href}
-      className="rounded-2xl border border-white/10 bg-white/5 active:bg-white/10 p-4 flex items-start justify-between gap-3"
+      className="rounded-[28px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 transition hover:-translate-y-0.5 hover:shadow-[0_28px_90px_rgba(15,23,42,0.12)]"
     >
-      <div>
-        <div className="font-semibold">{props.title}</div>
-        <div className="mt-1 text-sm opacity-75">{props.description}</div>
-      </div>
-
-      <div className="text-sm opacity-60">{"->"}</div>
+      <div className="font-semibold text-slate-900">{props.title}</div>
+      <div className="mt-2 text-sm text-slate-500">{props.description}</div>
+      <div className="mt-4 text-sm font-medium text-[#8b5e12]">Open</div>
     </Link>
   );
 }
@@ -102,10 +87,10 @@ function MiniLink(props: { href: string; label: string }) {
   return (
     <Link
       href={props.href}
-      className="h-12 rounded-xl border border-white/10 bg-white/5 active:bg-white/10 px-4 flex items-center justify-between"
+      className="flex h-14 items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
     >
       <span>{props.label}</span>
-      <span className="opacity-60">{"->"}</span>
+      <span className="text-slate-400">{"->"}</span>
     </Link>
   );
 }

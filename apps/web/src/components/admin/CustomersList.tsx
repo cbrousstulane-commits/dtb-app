@@ -86,11 +86,7 @@ export default function CustomersList() {
     });
   }, [items, searchTerm]);
 
-  const visibleItems = React.useMemo(
-    () => [...filteredItems].sort(compareCustomers),
-    [filteredItems],
-  );
-
+  const visibleItems = React.useMemo(() => [...filteredItems].sort(compareCustomers), [filteredItems]);
   const totalPages = Math.max(1, Math.ceil(visibleItems.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pageItems = visibleItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -107,15 +103,12 @@ export default function CustomersList() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <IconButton label="Search">
-              <SearchIcon />
-            </IconButton>
             <Link
-              href="/admin/customers/import-square"
+              href="/admin/config"
               className="inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
             >
-              <UploadIcon />
-              Import Square CSV
+              <GearIcon />
+              Import / Export in Settings
             </Link>
             <Link
               href="/admin/customers/new"
@@ -149,7 +142,7 @@ export default function CustomersList() {
       </section>
 
       <section className="overflow-hidden rounded-[32px] bg-[#f8fafc] shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80">
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -161,41 +154,33 @@ export default function CustomersList() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-16 text-center text-sm text-slate-500 sm:px-6">
-                    Loading customers...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-16 text-center text-sm text-red-600 sm:px-6">
-                    Failed to load customers: {error}
-                  </td>
-                </tr>
-              ) : pageItems.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-16 text-center text-sm text-slate-500 sm:px-6">
-                    {searchTerm ? "No customers match that search." : "No customers yet."}
-                  </td>
-                </tr>
-              ) : (
-                pageItems.map((item) => <CustomerRow key={item.id} item={item} />)
-              )}
+              {renderTableBody({ loading, error, pageItems, searchTerm })}
             </tbody>
           </table>
         </div>
 
-        <div className="flex flex-col gap-4 border-t border-slate-200 px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm">
+        <div className="space-y-3 p-4 md:hidden">
+          {loading ? (
+            <MobileState label="Loading customers..." />
+          ) : error ? (
+            <MobileState label={`Failed to load customers: ${error}`} tone="error" />
+          ) : pageItems.length === 0 ? (
+            <MobileState label={searchTerm ? "No customers match that search." : "No customers yet."} />
+          ) : (
+            pageItems.map((item) => <CustomerMobileCard key={item.id} item={item} />)
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-slate-200 px-4 py-4 sm:px-5 md:px-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="inline-flex h-11 items-center self-start rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm">
             10/Page
           </div>
 
-          <div className="flex items-center gap-2 self-center">
+          <div className="flex items-center justify-center gap-2">
             <PagerButton label="Previous" disabled={currentPage === 1} onClick={() => setPage(Math.max(1, currentPage - 1))} />
             {buildPageNumbers(currentPage, totalPages).map((entry, index) =>
               entry === "ellipsis" ? (
-                <span key={`ellipsis-${index}`} className="px-2 text-sm text-slate-400">...</span>
+                <span key={`ellipsis-${index}`} className="px-1 text-sm text-slate-400">...</span>
               ) : (
                 <button
                   key={entry}
@@ -222,21 +207,48 @@ export default function CustomersList() {
   );
 }
 
+function renderTableBody(props: { loading: boolean; error: string | null; pageItems: CustomerListItem[]; searchTerm: string }) {
+  if (props.loading) {
+    return (
+      <tr>
+        <td colSpan={5} className="px-5 py-16 text-center text-sm text-slate-500 sm:px-6">
+          Loading customers...
+        </td>
+      </tr>
+    );
+  }
+
+  if (props.error) {
+    return (
+      <tr>
+        <td colSpan={5} className="px-5 py-16 text-center text-sm text-red-600 sm:px-6">
+          Failed to load customers: {props.error}
+        </td>
+      </tr>
+    );
+  }
+
+  if (props.pageItems.length === 0) {
+    return (
+      <tr>
+        <td colSpan={5} className="px-5 py-16 text-center text-sm text-slate-500 sm:px-6">
+          {props.searchTerm ? "No customers match that search." : "No customers yet."}
+        </td>
+      </tr>
+    );
+  }
+
+  return props.pageItems.map((item) => <CustomerRow key={item.id} item={item} />);
+}
+
 function CustomerRow({ item }: { item: CustomerListItem }) {
-  const initials = item.fullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "?";
+  const initials = customerInitials(item.fullName);
 
   return (
     <tr className="border-b border-slate-200 last:border-b-0 hover:bg-slate-50/80">
       <td className="px-5 py-4 sm:px-6">
         <Link href={`/admin/customers/${item.id}`} className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#f0d9a4] to-[#d8a641] text-sm font-semibold text-slate-900">
-            {initials}
-          </div>
+          <Avatar initials={initials} />
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-slate-900">{item.fullName || "Unnamed customer"}</div>
             {item.additionalNames.length > 0 ? (
@@ -262,6 +274,81 @@ function CustomerRow({ item }: { item: CustomerListItem }) {
   );
 }
 
+function CustomerMobileCard({ item }: { item: CustomerListItem }) {
+  const initials = customerInitials(item.fullName);
+
+  return (
+    <Link
+      href={`/admin/customers/${item.id}`}
+      className="block rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+    >
+      <div className="flex items-start gap-3">
+        <Avatar initials={initials} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-slate-900">{item.fullName || "Unnamed customer"}</div>
+              {item.additionalNames.length > 0 ? (
+                <div className="truncate text-xs text-slate-500">Also known as {item.additionalNames[0]}</div>
+              ) : null}
+            </div>
+            <StatusBadge status={item.status} />
+          </div>
+
+          <div className="mt-3 space-y-2 text-sm text-slate-600">
+            <InfoRow label="Email" value={item.email || "-"} />
+            <InfoRow label="Phone" value={item.phone || "-"} />
+          </div>
+
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+            <span>{item.source === "manual" ? "Manual" : item.source}</span>
+            <span className="font-medium text-[#8b5e12]">Open</span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function MobileState(props: { label: string; tone?: "error" }) {
+  return (
+    <div className={[
+      "rounded-[24px] border px-4 py-10 text-center text-sm",
+      props.tone === "error" ? "border-red-200 bg-red-50 text-red-600" : "border-slate-200 bg-white text-slate-500",
+    ].join(" ")}>
+      {props.label}
+    </div>
+  );
+}
+
+function InfoRow(props: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="shrink-0 text-slate-400">{props.label}</span>
+      <span className="min-w-0 text-right break-words">{props.value}</span>
+    </div>
+  );
+}
+
+function Avatar(props: { initials: string }) {
+  return (
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#f0d9a4] to-[#d8a641] text-sm font-semibold text-slate-900">
+      {props.initials}
+    </div>
+  );
+}
+
+function customerInitials(fullName: string) {
+  return (
+    fullName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
+}
+
 function StatCard(props: { label: string; value: string; tone?: "green" | "slate" }) {
   const toneClass = props.tone === "green" ? "text-emerald-600" : "text-slate-900";
   return (
@@ -281,18 +368,6 @@ function StatusBadge(props: { status: CustomerRecord["status"] }) {
     ].join(" ")}>
       {isActive ? "Active" : props.status === "merged" ? "Merged" : "Inactive"}
     </span>
-  );
-}
-
-function IconButton(props: { label: string; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={props.label}
-      className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700"
-    >
-      {props.children}
-    </button>
   );
 }
 
@@ -344,10 +419,10 @@ function SearchIcon() {
   );
 }
 
-function UploadIcon() {
+function GearIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4.5 w-4.5">
-      <path d="M12 16V5m0 0-4 4m4-4 4 4M5 19h14" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm7.5 3.5-1.9.7a6 6 0 0 1-.5 1.2l.8 1.8-1.7 1.7-1.8-.8a6 6 0 0 1-1.2.5l-.7 1.9h-2.4l-.7-1.9a6 6 0 0 1-1.2-.5l-1.8.8-1.7-1.7.8-1.8a6 6 0 0 1-.5-1.2L4.5 12v-2.4l1.9-.7a6 6 0 0 1 .5-1.2l-.8-1.8 1.7-1.7 1.8.8a6 6 0 0 1 1.2-.5l.7-1.9h2.4l.7 1.9a6 6 0 0 1 1.2.5l1.8-.8 1.7 1.7-.8 1.8c.2.4.4.8.5 1.2l1.9.7Z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

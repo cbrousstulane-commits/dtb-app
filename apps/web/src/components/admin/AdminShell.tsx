@@ -14,17 +14,15 @@ type NavItem = {
 
 const PRIMARY_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: GridIcon },
-  { href: "/admin/captains", label: "Captains", icon: UserBadgeIcon },
   { href: "/admin/boats", label: "Boats", icon: BoatIcon },
   { href: "/admin/bookings", label: "Bookings", icon: TicketIcon },
   { href: "/admin/customers", label: "Customers", icon: UsersIcon },
   { href: "/admin/lodge-rooms", label: "Rooms", icon: BedIcon },
-  { href: "/admin/trip-types", label: "Trip Types", icon: CompassIcon },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
-  { href: "/admin/users", label: "Users", icon: ShieldIcon },
   { href: "/admin/config", label: "Settings", icon: GearIcon },
+  { href: "/admin/users", label: "Users", icon: ShieldIcon },
   { href: "/auth-test", label: "Auth Test", icon: BoltIcon },
 ];
 
@@ -49,19 +47,20 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
         <div className="flex min-h-dvh flex-1 flex-col lg:min-h-0">
           <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-[#d6e0eb]/90 backdrop-blur lg:hidden">
-            <div className="flex items-center justify-between px-4 py-4">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">DTB Admin</div>
-                <div className="mt-1 text-xl font-semibold text-slate-900">{title}</div>
-              </div>
+            <div className="flex items-center gap-3 px-4 py-4">
               <button
                 type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm"
                 onClick={() => setMenuOpen(true)}
                 aria-label="Open navigation menu"
               >
                 <MenuIcon />
               </button>
+
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">DTB Admin</div>
+                <div className="mt-1 truncate text-xl font-semibold text-slate-900">{title}</div>
+              </div>
             </div>
           </header>
 
@@ -121,7 +120,7 @@ function Sidebar(props: {
       <div className="mt-auto rounded-[24px] bg-slate-900 px-4 py-4 text-white">
         <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Admin Session</div>
         <div className="mt-2 text-sm font-medium">Shared admin shell active</div>
-        <div className="mt-1 text-sm text-slate-300">Use the mobile hamburger menu on smaller screens.</div>
+        <div className="mt-1 text-sm text-slate-300">Use settings for trip types, captains, and data import/export.</div>
       </div>
     </div>
   );
@@ -155,10 +154,6 @@ function GridIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></SvgBox>;
 }
 
-function UserBadgeIcon({ active }: { active: boolean }) {
-  return <SvgBox className={iconClass(active)}><path d="M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 7a7 7 0 0 1 14 0" /></SvgBox>;
-}
-
 function BoatIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M3 13l9-4 9 4M5 13v4h14v-4M7 17c1 2 2.5 3 5 3s4-1 5-3" /></SvgBox>;
 }
@@ -173,10 +168,6 @@ function UsersIcon({ active }: { active: boolean }) {
 
 function BedIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M4 12V7h5a3 3 0 0 1 3 3v2M4 12h16v5H4zM16 12V9a2 2 0 1 1 4 0v3" /></SvgBox>;
-}
-
-function CompassIcon({ active }: { active: boolean }) {
-  return <SvgBox className={iconClass(active)}><circle cx="12" cy="12" r="8" /><path d="m10 14 4-8-2 6 6 2-8 4Z" /></SvgBox>;
 }
 
 function ShieldIcon({ active }: { active: boolean }) {

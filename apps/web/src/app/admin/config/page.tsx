@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React from "react";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
@@ -73,7 +74,7 @@ export default function AdminConfigPage() {
           ...form,
           updatedAt: serverTimestamp(),
         },
-        { merge: true }
+        { merge: true },
       );
       setStatus("Saved.");
     } catch (e: unknown) {
@@ -84,52 +85,116 @@ export default function AdminConfigPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="text-lg font-semibold">Config</div>
-        <div className="mt-1 text-sm opacity-80">
-          Settings stored in Firestore at <code className="opacity-90">admin/config</code>.
+    <div className="space-y-6 lg:space-y-8">
+      <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7">
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Settings</div>
+        <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Admin Settings</div>
+        <div className="mt-3 max-w-3xl text-sm text-slate-500">
+          This is the home for lower-frequency admin functions like trip types, captains, users, and data import/export.
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4">
-        {loading ? (
-          <div className="text-sm opacity-80">Loading...</div>
-        ) : (
-          <>
-            <Field
-              label="Company name"
-              value={form.companyName ?? ""}
-              onChange={(v) => setForm((p) => ({ ...p, companyName: v }))}
-              placeholder="Down the Bayou Charters"
-            />
-            <Field
-              label="Primary phone"
-              value={form.primaryPhone ?? ""}
-              onChange={(v) => setForm((p) => ({ ...p, primaryPhone: v }))}
-              placeholder="(504) 555-1234"
-            />
-            <Field
-              label="Primary email"
-              value={form.primaryEmail ?? ""}
-              onChange={(v) => setForm((p) => ({ ...p, primaryEmail: v }))}
-              placeholder="ops@downthebayou.com"
-            />
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-6">
+          <Panel title="General" description="Saved in Firestore at admin/config.">
+            {loading ? (
+              <div className="text-sm text-slate-500">Loading...</div>
+            ) : (
+              <div className="space-y-4">
+                <Field
+                  label="Company name"
+                  value={form.companyName ?? ""}
+                  onChange={(v) => setForm((p) => ({ ...p, companyName: v }))}
+                  placeholder="Down the Bayou Charters"
+                />
+                <Field
+                  label="Primary phone"
+                  value={form.primaryPhone ?? ""}
+                  onChange={(v) => setForm((p) => ({ ...p, primaryPhone: v }))}
+                  placeholder="(504) 555-1234"
+                />
+                <Field
+                  label="Primary email"
+                  value={form.primaryEmail ?? ""}
+                  onChange={(v) => setForm((p) => ({ ...p, primaryEmail: v }))}
+                  placeholder="ops@downthebayou.com"
+                />
 
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={saving}
-              className="h-12 w-full rounded-xl border border-white/10 bg-white/10 active:bg-white/15 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save"}
-            </button>
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={saving}
+                  className="inline-flex h-12 items-center rounded-2xl bg-[#d8a641] px-5 text-sm font-semibold text-slate-900 shadow-[0_12px_24px_rgba(216,166,65,0.26)] transition hover:bg-[#c9922a] disabled:opacity-60"
+                >
+                  {saving ? "Saving..." : "Save settings"}
+                </button>
 
-            {status && <div className="text-sm opacity-80">{status}</div>}
-          </>
-        )}
+                {status ? <div className="text-sm text-slate-500">{status}</div> : null}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            title="Import / Export Data"
+            description="Centralized CSV actions for customer and trip data. Export links are placeholders until those flows are wired."
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              <ActionLink href="/admin/customers/import-square" title="Import customers CSV" description="Upload the Square customer export and reconcile existing customers." />
+              <ActionLink href="/admin/bookings" title="Import trips CSV" description="Use the bookings area for website trip-import work as the importer is completed." />
+              <ActionLink href="/admin/customers" title="Export customers CSV" description="Placeholder: customer export will live here when CSV export is added." />
+              <ActionLink href="/admin/bookings" title="Export trips CSV" description="Placeholder: trip export will live here when operational trip export is added." />
+            </div>
+          </Panel>
+        </div>
+
+        <div className="space-y-6">
+          <Panel title="Master Data" description="Moved here from the main nav.">
+            <div className="space-y-3">
+              <ActionRow href="/admin/captains" label="Captains" body="Manage captain records and admin-access flags." />
+              <ActionRow href="/admin/trip-types" label="Trip Types" body="Manage trip durations and active/inactive catalog state." />
+              <ActionRow href="/admin/users" label="Users" body="Manage non-captain access users and admin users." />
+            </div>
+          </Panel>
+        </div>
       </section>
     </div>
+  );
+}
+
+function Panel(props: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7">
+      <div className="text-lg font-semibold text-slate-900">{props.title}</div>
+      {props.description ? <div className="mt-2 text-sm text-slate-500">{props.description}</div> : null}
+      <div className="mt-5">{props.children}</div>
+    </section>
+  );
+}
+
+function ActionRow(props: { href: string; label: string; body: string }) {
+  return (
+    <Link
+      href={props.href}
+      className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+    >
+      <div>
+        <div className="text-sm font-semibold text-slate-900">{props.label}</div>
+        <div className="mt-1 text-sm text-slate-500">{props.body}</div>
+      </div>
+      <div className="text-slate-400">{"->"}</div>
+    </Link>
+  );
+}
+
+function ActionLink(props: { href: string; title: string; description: string }) {
+  return (
+    <Link
+      href={props.href}
+      className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+    >
+      <div className="text-sm font-semibold text-slate-900">{props.title}</div>
+      <div className="mt-2 text-sm text-slate-500">{props.description}</div>
+    </Link>
   );
 }
 
@@ -141,12 +206,12 @@ function Field(props: {
 }) {
   return (
     <div className="space-y-2">
-      <div className="text-sm font-semibold">{props.label}</div>
+      <div className="text-sm font-semibold text-slate-700">{props.label}</div>
       <input
         value={props.value}
         placeholder={props.placeholder}
         onChange={(e) => props.onChange(e.target.value)}
-        className="h-12 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-base outline-none focus:border-white/25"
+        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm outline-none transition focus:border-slate-300"
       />
     </div>
   );

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import React from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 
 import { db } from "@/lib/firebase/client";
 import { BoatTripTypeRateRecord, boatTripTypeRatesCollectionPath, formatMoney } from "@/lib/admin/boatTripTypeRates";
@@ -27,26 +27,26 @@ export default function BoatTripTypeRatesList() {
   const [items, setItems] = React.useState<BoatTripTypeRateListItem[]>([]);
 
   React.useEffect(() => {
-    const q = query(collection(db, ...boatTripTypeRatesCollectionPath), orderBy("boatNameSnapshot"), orderBy("tripTypeNameSnapshot"));
-
     const unsubscribe = onSnapshot(
-      q,
+      collection(db, ...boatTripTypeRatesCollectionPath),
       (snapshot) => {
-        const next: BoatTripTypeRateListItem[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<BoatTripTypeRateRecord>;
-          return {
-            id: docSnap.id,
-            boatId: data.boatId ?? "",
-            boatNameSnapshot: data.boatNameSnapshot ?? "",
-            tripTypeId: data.tripTypeId ?? "",
-            tripTypeNameSnapshot: data.tripTypeNameSnapshot ?? "",
-            retailPrice: typeof data.retailPrice === "number" ? data.retailPrice : 0,
-            ownerContractPrice: typeof data.ownerContractPrice === "number" ? data.ownerContractPrice : null,
-            status: data.status === "inactive" ? "inactive" : "active",
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-          };
-        });
+        const next: BoatTripTypeRateListItem[] = snapshot.docs
+          .map((docSnap) => {
+            const data = docSnap.data() as Partial<BoatTripTypeRateRecord>;
+            return {
+              id: docSnap.id,
+              boatId: data.boatId ?? "",
+              boatNameSnapshot: data.boatNameSnapshot ?? "",
+              tripTypeId: data.tripTypeId ?? "",
+              tripTypeNameSnapshot: data.tripTypeNameSnapshot ?? "",
+              retailPrice: typeof data.retailPrice === "number" ? data.retailPrice : 0,
+              ownerContractPrice: typeof data.ownerContractPrice === "number" ? data.ownerContractPrice : null,
+              status: data.status === "inactive" ? "inactive" as const : "active" as const,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+            };
+          })
+          .sort(compareRates);
 
         setItems(next);
         setError(null);
@@ -103,6 +103,12 @@ export default function BoatTripTypeRatesList() {
   );
 }
 
+function compareRates(a: BoatTripTypeRateListItem, b: BoatTripTypeRateListItem) {
+  const boatCompare = (a.boatNameSnapshot || "").localeCompare(b.boatNameSnapshot || "", undefined, { sensitivity: "base" });
+  if (boatCompare !== 0) return boatCompare;
+  return (a.tripTypeNameSnapshot || "").localeCompare(b.tripTypeNameSnapshot || "", undefined, { sensitivity: "base" });
+}
+
 function SummaryCard(props: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -145,3 +151,4 @@ function RateRow({ item }: { item: BoatTripTypeRateListItem }) {
 function Pill(props: { label: string }) {
   return <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">{props.label}</span>;
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { getIdTokenResult, onAuthStateChanged, signOut, User } from "firebase/auth";
@@ -109,7 +109,7 @@ export default function AccessPage() {
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="text-lg font-semibold">DTB Access</div>
           <div className="mt-1 text-sm opacity-75">
-            This is the signed-in landing area for captain and limited-access users. Broader operational workflows will be added later.
+            This is the signed-in landing area for captain and limited-access users. Day-of workflows are still growing, but daily fish catch reporting is now available for captain-linked accounts.
           </div>
         </section>
 
@@ -126,7 +126,7 @@ export default function AccessPage() {
           <section className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-3">
             <div className="font-semibold">Access granted</div>
             <div className="text-sm opacity-80">
-              Your Google email is linked to an active record. Day-of captain and operational views are not built yet, but the account is now recognized by the app.
+              Your Google email is linked to an active record. Admin tools remain separate, and captain-focused reporting tools now live alongside this access landing area.
             </div>
             <div className="flex flex-wrap gap-3">
               {state.admin ? (
@@ -134,6 +134,9 @@ export default function AccessPage() {
                   Open admin
                 </Link>
               ) : null}
+              <Link href="/access/daily-reports" className="inline-flex h-12 items-center rounded-xl border border-white/10 bg-white/5 px-4">
+                Daily reports
+              </Link>
               <Link href="/auth-test" className="inline-flex h-12 items-center rounded-xl border border-white/10 bg-white/5 px-4">
                 View token claims
               </Link>

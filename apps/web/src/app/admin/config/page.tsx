@@ -27,6 +27,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
       { href: "/admin/lodge-rooms", label: "Lodge Rooms", body: "Manage the 8 nightly room units as inventory-of-1 records." },
       { href: "/admin/trip-types", label: "Trip Types", body: "Manage trip durations and active or inactive catalog state." },
       { href: "/admin/users", label: "Users And Captains", body: "Manage non-captain access users and review captain access records." },
+      { href: "/admin/fish-species", label: "Fish Species", body: "Define fish species and maintain subspecies rows for catch reporting." },
     ],
   },
   {
@@ -147,21 +148,12 @@ export default function AdminConfigPage() {
           <div className="mt-2 text-sm text-slate-500">Use this as the main workspace for setup, pricing, and data management tasks.</div>
 
           <div className="mt-5 space-y-2">
-            <button
-              type="button"
-              onClick={() => setActiveSection("General")}
-              className={navClass(activeSection === "General")}
-            >
+            <button type="button" onClick={() => setActiveSection("General")} className={navClass(activeSection === "General")}>
               <span>General</span>
               <span className="text-slate-400">-&gt;</span>
             </button>
             {SETTINGS_SECTIONS.map((section) => (
-              <button
-                key={section.title}
-                type="button"
-                onClick={() => setActiveSection(section.title)}
-                className={navClass(activeSection === section.title)}
-              >
+              <button key={section.title} type="button" onClick={() => setActiveSection(section.title)} className={navClass(activeSection === section.title)}>
                 <span>{section.title}</span>
                 <span className="text-slate-400">-&gt;</span>
               </button>
@@ -177,12 +169,7 @@ export default function AdminConfigPage() {
                 <div className="mt-1 text-sm text-slate-500">Saved in Firestore at `admin/config`.</div>
               </div>
 
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={saving || loading}
-                className="inline-flex h-11 items-center rounded-2xl bg-[#d8a641] px-5 text-sm font-semibold text-slate-900 shadow-[0_12px_24px_rgba(216,166,65,0.26)] transition hover:bg-[#c9922a] disabled:opacity-60"
-              >
+              <button type="button" onClick={onSave} disabled={saving || loading} className="inline-flex h-11 items-center rounded-2xl bg-[#d8a641] px-5 text-sm font-semibold text-slate-900 shadow-[0_12px_24px_rgba(216,166,65,0.26)] transition hover:bg-[#c9922a] disabled:opacity-60">
                 {saving ? "Saving..." : "Save Settings"}
               </button>
             </div>

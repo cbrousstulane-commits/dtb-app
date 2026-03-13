@@ -84,7 +84,7 @@ Removed the remaining unnecessary full-collection realtime listeners from admin 
 ### Completed
 - Converted access users, captains, boats, lodge rooms, trip types, website booking overview, boat form, boat-rate form, and trip-pricing grid loads to one-time fetches.
 - Kept functional behavior the same for browse and setup screens by reloading after writes instead of holding live subscriptions open.
-- Verified there are no remaining onSnapshot calls under pps/web/src after this pass.
+- Verified there are no remaining onSnapshot calls under `apps/web/src` after this pass.
 
 ## 2026-03-13 - Settings backup and restore hub
 
@@ -95,3 +95,15 @@ Consolidated import and future export or restore entry points under one Settings
 - Replaced the direct import/export card grid in Settings with a single Backup And Restore entry point.
 - Added /admin/config/backup-restore as the centralized workspace for live and planned import, export, backup, and restore actions.
 - Routed current customer-import and booking-import entry points through that hub so future backup and recovery flows have one home.
+
+## 2026-03-13 - Fish species and captain catch reporting
+
+### Summary
+Added fish master data under Settings and a first captain-facing daily fish catch report flow.
+
+### Completed
+- Added fish species management under admin settings with embedded subspecies rows per species.
+- Added admin routes for listing, creating, and editing fish species records.
+- Added a captain-facing daily report page at /access/daily-reports that stores fish catches with species and subspecies snapshots per captain and date.
+- Linked the access landing page to the new daily-report workflow so captains can start using catch logging without waiting for the full trip-log system.
+

@@ -60,6 +60,7 @@ Use separate first-class collections. Do not collapse these into one generic inv
 - lodgeRooms
 - customers
 - tripTypes
+- fishSpecies
 - accessUsers
 
 ### Rate And Pricing Collections
@@ -334,6 +335,8 @@ Examples:
 - Settings now holds lower-frequency master-data tools and a centralized backup and restore workspace instead of scattering import/export actions across the sidebar.
 - Boat trip pricing is implemented for boat plus trip type retail price and optional owner contract price.
 - Shared activity and date-range views are not implemented yet.
+- Fish species master data is implemented with embedded subspecies rows for catch reporting.
+- Captain daily fish catch reporting is implemented at /access/daily-reports as an early day-of reporting shell.
 - Captain portal is not implemented yet beyond the basic signed-in access landing page.
 
 ## Build Order
@@ -540,5 +543,8 @@ Out of scope:
 - Use separate collections for first-class entities.
 - Prefer deactivation over deletion.
 - Preserve history with snapshots on operational records.
+
+
+
 
 

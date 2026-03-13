@@ -331,7 +331,7 @@ Examples:
 - `/access` exists as the signed-in non-admin landing page.
 - Square customer CSV import is implemented with preview, run logging, raw imported rows, auto-match by email or phone, and review outcomes for uncertain cases.
 - Website booking import is not implemented yet, but the internal booking-shell types, paths, and `/admin/bookings` overview are now in place.
-- Settings now holds lower-frequency master-data and import/export tools instead of keeping them all in the main sidebar.
+- Settings now holds lower-frequency master-data tools and a centralized backup and restore workspace instead of scattering import/export actions across the sidebar.
 - Boat trip pricing is implemented for boat plus trip type retail price and optional owner contract price.
 - Shared activity and date-range views are not implemented yet.
 - Captain portal is not implemented yet beyond the basic signed-in access landing page.
@@ -540,4 +540,5 @@ Out of scope:
 - Use separate collections for first-class entities.
 - Prefer deactivation over deletion.
 - Preserve history with snapshots on operational records.
+
 

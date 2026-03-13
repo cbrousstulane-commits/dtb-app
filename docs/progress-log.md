@@ -85,3 +85,13 @@ Removed the remaining unnecessary full-collection realtime listeners from admin 
 - Converted access users, captains, boats, lodge rooms, trip types, website booking overview, boat form, boat-rate form, and trip-pricing grid loads to one-time fetches.
 - Kept functional behavior the same for browse and setup screens by reloading after writes instead of holding live subscriptions open.
 - Verified there are no remaining onSnapshot calls under pps/web/src after this pass.
+
+## 2026-03-13 - Settings backup and restore hub
+
+### Summary
+Consolidated import and future export or restore entry points under one Settings workspace instead of scattering separate CSV actions across the settings page.
+
+### Completed
+- Replaced the direct import/export card grid in Settings with a single Backup And Restore entry point.
+- Added /admin/config/backup-restore as the centralized workspace for live and planned import, export, backup, and restore actions.
+- Routed current customer-import and booking-import entry points through that hub so future backup and recovery flows have one home.

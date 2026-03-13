@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
@@ -90,7 +90,7 @@ export default function AdminConfigPage() {
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Settings</div>
         <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Admin Settings</div>
         <div className="mt-3 max-w-3xl text-sm text-slate-500">
-          This is the home for lower-frequency admin functions like master data, trip pricing, users, and data import/export.
+          This is the home for lower-frequency admin functions like master data, trip pricing, users, and backup or restore actions.
         </div>
       </section>
 
@@ -114,13 +114,12 @@ export default function AdminConfigPage() {
             )}
           </Panel>
 
-          <Panel title="Import / Export Data" description="Centralized CSV actions for customer and trip data. Export links are placeholders until those flows are wired.">
-            <div className="grid gap-3 md:grid-cols-2">
-              <ActionLink href="/admin/customers/import-square" title="Import customers CSV" description="Upload the Square customer export and reconcile existing customers." />
-              <ActionLink href="/admin/bookings" title="Import trips CSV" description="Use the bookings area for website trip-import work as the importer is completed." />
-              <ActionLink href="/admin/customers" title="Export customers CSV" description="Placeholder: customer export will live here when CSV export is added." />
-              <ActionLink href="/admin/bookings" title="Export trips CSV" description="Placeholder: trip export will live here when operational trip export is added." />
-            </div>
+          <Panel title="Backup And Restore" description="All data import, export, backup, and restore actions now route through one workspace.">
+            <ActionLink
+              href="/admin/config/backup-restore"
+              title="Open Backup And Restore"
+              description="Go to the centralized workspace for customer imports, booking imports, and future CSV export or restore tools."
+            />
           </Panel>
         </div>
 
@@ -170,7 +169,7 @@ function ActionRow(props: { href: string; label: string; body: string }) {
 
 function ActionLink(props: { href: string; title: string; description: string }) {
   return (
-    <Link href={props.href} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
+    <Link href={props.href} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 block">
       <div className="text-sm font-semibold text-slate-900">{props.title}</div>
       <div className="mt-2 text-sm text-slate-500">{props.description}</div>
     </Link>

@@ -90,7 +90,7 @@ export default function AdminConfigPage() {
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Settings</div>
         <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Admin Settings</div>
         <div className="mt-3 max-w-3xl text-sm text-slate-500">
-          This is the home for lower-frequency admin functions like boats, trip types, captains, users, and data import/export.
+          This is the home for lower-frequency admin functions like master data, trip pricing, users, and data import/export.
         </div>
       </section>
 
@@ -125,13 +125,19 @@ export default function AdminConfigPage() {
         </div>
 
         <div className="space-y-6">
-          <Panel title="Master Data" description="Moved here from the main nav.">
+          <Panel title="Master Data" description="Core entities used across pricing, imports, and operations.">
             <div className="space-y-3">
               <ActionRow href="/admin/boats" label="Boats" body="Manage boat records and primary captain defaults." />
               <ActionRow href="/admin/captains" label="Captains" body="Manage captain records and admin-access flags." />
+              <ActionRow href="/admin/lodge-rooms" label="Lodge Rooms" body="Manage the 8 nightly room units as master inventory records." />
               <ActionRow href="/admin/trip-types" label="Trip Types" body="Manage trip durations and active/inactive catalog state." />
-              <ActionRow href="/admin/boat-rates" label="Boat Trip Type Rates" body="Set retail and owner contract prices per boat and trip type." />
               <ActionRow href="/admin/users" label="Users and Captains" body="Manage non-captain access users and review captain access records." />
+            </div>
+          </Panel>
+
+          <Panel title="Trip Pricing" description="Set rates by boat and trip type.">
+            <div className="space-y-3">
+              <ActionRow href="/admin/boat-rates" label="Boat Trip Type Rates" body="Set the retail price and optional owner contract price for each boat and trip type combination." />
             </div>
           </Panel>
         </div>

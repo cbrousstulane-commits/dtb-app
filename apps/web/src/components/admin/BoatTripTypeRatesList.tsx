@@ -69,9 +69,9 @@ export default function BoatTripTypeRatesList() {
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-lg font-semibold">Boat Trip Type Rates</div>
+            <div className="text-lg font-semibold">Trip Pricing</div>
             <div className="mt-1 text-sm opacity-75">
-              Set the retail price and optional owner contract price for each boat and trip type combination.
+              Boat trip type rates set the retail price and optional owner contract price owed to the boat owner for each trip type.
             </div>
           </div>
 
@@ -90,13 +90,13 @@ export default function BoatTripTypeRatesList() {
       </section>
 
       {loading ? (
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm opacity-80">Loading boat rates...</section>
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm opacity-80">Loading trip pricing...</section>
       ) : error ? (
-        <section className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm">Failed to load boat rates: {error}</section>
+        <section className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm">Failed to load trip pricing: {error}</section>
       ) : (
         <>
-          <RateSection title="Active rates" items={activeItems} emptyLabel="No active boat rates yet." />
-          <RateSection title="Inactive rates" items={inactiveItems} emptyLabel="No inactive boat rates." />
+          <RateSection title="Active rates" items={activeItems} emptyLabel="No active trip pricing yet." />
+          <RateSection title="Inactive rates" items={inactiveItems} emptyLabel="No inactive trip pricing." />
         </>
       )}
     </div>

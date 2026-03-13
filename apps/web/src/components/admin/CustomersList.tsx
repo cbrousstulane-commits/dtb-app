@@ -2,13 +2,24 @@
 
 import Link from "next/link";
 import React from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
-import { CustomerRecord, customersCollectionPath, normalizeAdditionalNames } from "@/lib/admin/customers";
+import {
+  CUSTOMERS_CACHE_KEY,
+  CUSTOMERS_CACHE_TTL_MS,
+  CustomerRecord,
+  customersCollectionPath,
+  normalizeAdditionalNames,
+} from "@/lib/admin/customers";
 import { db } from "@/lib/firebase/client";
 
 type CustomerListItem = CustomerRecord & {
   id: string;
+};
+
+type CachedCustomers = {
+  fetchedAt: number;
+  items: CustomerListItem[];
 };
 
 const PAGE_SIZE = 10;
@@ -23,6 +34,55 @@ function errorMessage(error: unknown): string {
   }
 }
 
+function mapCustomer(docId: string, data: Partial<CustomerRecord>): CustomerListItem {
+  return {
+    id: docId,
+    fullName: data.fullName ?? "",
+    fullNameLower: data.fullNameLower ?? "",
+    additionalNames: normalizeAdditionalNames(data.additionalNames),
+    email: data.email ?? "",
+    phone: data.phone ?? "",
+    source: data.source ?? "manual",
+    squareCustomerId: data.squareCustomerId ?? "",
+    websiteCustomerId: data.websiteCustomerId ?? "",
+    customerMatchStatus: data.customerMatchStatus ?? "unresolved",
+    squareImportLastRunId: data.squareImportLastRunId ?? "",
+    squareImportUpdatedAt: data.squareImportUpdatedAt ?? "",
+    status: data.status === "inactive" ? "inactive" : data.status === "merged" ? "merged" : "active",
+    mergedIntoCustomerId: data.mergedIntoCustomerId ?? "",
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  };
+}
+
+function readCachedCustomers(): CustomerListItem[] | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(CUSTOMERS_CACHE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as CachedCustomers;
+    if (!parsed || !Array.isArray(parsed.items) || typeof parsed.fetchedAt !== "number") return null;
+    if (Date.now() - parsed.fetchedAt > CUSTOMERS_CACHE_TTL_MS) return null;
+
+    return parsed.items;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedCustomers(items: CustomerListItem[]) {
+  if (typeof window === "undefined") return;
+
+  const payload: CachedCustomers = {
+    fetchedAt: Date.now(),
+    items,
+  };
+
+  window.sessionStorage.setItem(CUSTOMERS_CACHE_KEY, JSON.stringify(payload));
+}
+
 export default function CustomersList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -31,45 +91,41 @@ export default function CustomersList() {
   const [page, setPage] = React.useState(1);
 
   React.useEffect(() => {
-    const q = query(collection(db, ...customersCollectionPath), orderBy("fullName"));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const next: CustomerListItem[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<CustomerRecord>;
-
-          return {
-            id: docSnap.id,
-            fullName: data.fullName ?? "",
-            fullNameLower: data.fullNameLower ?? "",
-            additionalNames: normalizeAdditionalNames(data.additionalNames),
-            email: data.email ?? "",
-            phone: data.phone ?? "",
-            source: data.source ?? "manual",
-            squareCustomerId: data.squareCustomerId ?? "",
-            websiteCustomerId: data.websiteCustomerId ?? "",
-            customerMatchStatus: data.customerMatchStatus ?? "unresolved",
-            squareImportLastRunId: data.squareImportLastRunId ?? "",
-            squareImportUpdatedAt: data.squareImportUpdatedAt ?? "",
-            status: data.status === "inactive" ? "inactive" : data.status === "merged" ? "merged" : "active",
-            mergedIntoCustomerId: data.mergedIntoCustomerId ?? "",
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-          };
-        });
-
-        setItems(next);
+    async function load() {
+      const cached = readCachedCustomers();
+      if (cached) {
+        setItems(cached);
         setError(null);
         setLoading(false);
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        setLoading(false);
-      },
-    );
+        return;
+      }
 
-    return () => unsubscribe();
+      try {
+        const snapshot = await getDocs(query(collection(db, ...customersCollectionPath), orderBy("fullName")));
+        if (cancelled) return;
+
+        const next = snapshot.docs.map((docSnap) => mapCustomer(docSnap.id, docSnap.data() as Partial<CustomerRecord>));
+        writeCachedCustomers(next);
+        setItems(next);
+        setError(null);
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   React.useEffect(() => {
@@ -142,7 +198,7 @@ export default function CustomersList() {
       </section>
 
       <section className="overflow-hidden rounded-[32px] bg-[#f8fafc] shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80">
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -153,9 +209,7 @@ export default function CustomersList() {
                 <th className="px-5 py-4 text-right sm:px-6">Action</th>
               </tr>
             </thead>
-            <tbody>
-              {renderTableBody({ loading, error, pageItems, searchTerm })}
-            </tbody>
+            <tbody>{renderTableBody({ loading, error, pageItems, searchTerm })}</tbody>
           </table>
         </div>
 

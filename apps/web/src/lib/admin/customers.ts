@@ -28,6 +28,13 @@ export type CustomerRecord = {
 };
 
 export const customersCollectionPath = ["admin", "data", "customers"] as const;
+export const CUSTOMERS_CACHE_KEY = "dtb-admin-customers-v1";
+export const CUSTOMERS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+export function clearCustomersCache() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(CUSTOMERS_CACHE_KEY);
+}
 
 export function customerDocPath(customerId: string) {
   return [...customersCollectionPath, customerId] as const;

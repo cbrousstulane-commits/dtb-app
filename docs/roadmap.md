@@ -1,18 +1,18 @@
-# DTB Admin Panel Roadmap
+﻿# DTB Admin Panel Roadmap
 
 ## Product Direction
 
-### Source of Truth Rules
+### Source Of Truth Rules
 - The public website is the forward-looking source of truth for public availability and booking presentation.
 - The admin app is the retrospective operational source of truth for assignments, schedules, invoices, logs, overrides, imported bookings, and historical records.
 - Historical operational records must preserve the values recorded at the time of entry, even if the related boat, captain, customer, room, trip type, or rate record changes later.
 
 ## Core Domain Rules
-- Captains are a first-class entity with their own login/access path later.
+- Captains are a first-class entity with their own login and access path.
 - Boats are a core managed asset.
 - Lodge rooms are a core managed asset.
-- Customers are admin-managed records and must support import from Square CSV.
-- Trip Types are admin-defined records that determine trip duration in hours.
+- Customers are admin-managed records and support Square CSV import.
+- Trip types are admin-defined records that determine trip duration in hours.
 - Each boat has a primary captain.
 - Trip logs and maintenance logs should default to the boat's primary captain but allow override.
 - Deactivation is preferred over deletion.
@@ -28,7 +28,7 @@
 Admins can manage all master records and operational data.
 
 ### Captain
-Captains are created by admin and linked later through the Gmail address entered by admin.
+Captains are created by admin and linked through the Gmail address entered by admin.
 
 A captain should have access to:
 - all trips for the current day
@@ -62,14 +62,14 @@ Use separate first-class collections. Do not collapse these into one generic inv
 - tripTypes
 - accessUsers
 
-### Rate / Pricing Collections
+### Rate And Pricing Collections
 - boatTripTypeRates
 - captainTripTypeRates
 
 ### Imported Booking Collections
+- bookingImportRuns
 - bookingGroups
 - bookingItems
-- bookingImportRuns
 
 ### Operational Collections
 - trips
@@ -97,10 +97,10 @@ Core fields:
 - slug
 - email
 - authUid (optional until captain auth is provisioned)
+- adminAccess
 - status (`active | inactive`)
 - createdAt
 - updatedAt
-
 
 ### Access User
 Core fields:
@@ -112,6 +112,7 @@ Core fields:
 - status (`active | inactive`)
 - createdAt
 - updatedAt
+
 ### Lodge Room
 Core fields:
 - id
@@ -127,9 +128,11 @@ Core fields:
 - fullName
 - email
 - phone
+- additionalNames
 - source (`manual | square-import | website-import | captain-created`)
 - squareCustomerId (optional)
 - websiteCustomerId (optional)
+- customerMatchStatus (`matched | new | review | unresolved`)
 - status (`active | inactive | merged`)
 - mergedIntoCustomerId (optional)
 - createdAt
@@ -146,7 +149,7 @@ Core fields:
 - updatedAt
 
 ### Boat Trip Type Rate
-One record per boat + trip type.
+One record per boat plus trip type.
 
 Core fields:
 - id
@@ -159,7 +162,7 @@ Core fields:
 - updatedAt
 
 ### Captain Trip Type Rate
-One record per captain + trip type.
+One record per captain plus trip type.
 
 Core fields:
 - id
@@ -173,7 +176,7 @@ Core fields:
 ## Imported Booking Model
 
 ### Booking Group
-Represents the overall imported website reservation/order.
+Represents the overall imported website reservation or order.
 
 Core fields:
 - id
@@ -216,7 +219,7 @@ Core fields:
 ### Add-On Rule
 Add-ons such as all-inclusive should be modeled as add-on booking items, not inventory assets.
 
-## Identity Resolution and Customer Matching
+## Identity Resolution And Customer Matching
 
 ### Matching Philosophy
 Website bookings are imperfect identity data. Import should preserve the raw booking data first, then attempt customer matching safely.
@@ -230,13 +233,13 @@ Square customer import should auto-match when email matches or phone matches.
 ### Secondary Identifiers
 - normalized full name
 - booking date proximity
-- overlapping lodge/trip dates
-- shared external booking/order identifiers
+- overlapping lodge or trip dates
+- shared external booking or order identifiers
 
 If the last name matches without a matching email or phone number, the import should flag the record for review instead of auto-merging.
 
 ### Match Outcome States
-Each import/customer match should land in one of these states:
+Each import or customer match should land in one of these states:
 - `matched`
 - `new`
 - `review`
@@ -255,8 +258,8 @@ A single website purchase may include multiple separately imported booking items
 - inshore trip
 - all-inclusive add-on
 
-The system should preserve raw imported booking items first, then assemble complete operational trip/package views from:
-- booking group relationships
+The system should preserve raw imported booking items first, then assemble complete operational trip and package views from:
+- booking-group relationships
 - customer matching
 - dates
 - item types
@@ -278,10 +281,10 @@ For scheduled trip logs:
 - captain may override the boat
 - captain may override the customer
 
-For unscheduled/ad hoc day-of work:
+For unscheduled and ad hoc day-of work:
 - captain may create a new trip-log entry
 - captain may select a boat
-- captain may search/select an existing customer
+- captain may search or select an existing customer
 - captain may create a new customer if needed
 
 Historical trip logs must preserve both scheduled values and actual values.
@@ -313,20 +316,24 @@ Examples:
 - roomNameSnapshot
 
 ## Current Repo State
-- Firebase + Next.js admin scaffold exists.
+- Firebase plus Next.js admin scaffold exists.
 - Google Auth exists.
 - Admin claim gating exists.
-- `/auth-test` exists and is used for token/claim inspection.
+- `/auth-test` exists and is used for token and claim inspection.
 - Captains CRUD is implemented with Google-email linkage and per-captain admin access.
-- Boats CRUD v1 is implemented with list, create, edit, active/inactive status, and primary captain assignment.
-- Lodge rooms CRUD v1 is implemented with list, create, edit, active/inactive status, and an 8-room cap.
-- Customers CRUD v1 is implemented with manual list, create, edit, and active/inactive status.
-- Trip types CRUD v1 is implemented with list, create, edit, durationHours, and active/inactive status.
-- Non-captain access users CRUD is implemented for limited user/admin access by Google email.
+- Boats CRUD v1 is implemented with list, create, edit, active and inactive status, and primary captain assignment.
+- Lodge rooms CRUD v1 is implemented with list, create, edit, active and inactive status, and an 8-room cap.
+- Customers CRUD v1 is implemented with manual list, create, edit, active and inactive status, unified search, and 10-per-page pagination.
+- Customers list now uses one-time loads plus short session caching instead of a live full-collection listener for routine admin browsing.
+- Trip types CRUD v1 is implemented with list, create, edit, `durationHours`, and active and inactive status.
+- Non-captain access users CRUD is implemented for limited user and admin access by Google email.
 - `/access` exists as the signed-in non-admin landing page.
-- Website booking import is not implemented yet, but the internal booking-shell types/paths and /admin/bookings overview are now in place.
-- Shared activity/date-range views are not implemented yet.
-- Captain portal is not implemented yet.
+- Square customer CSV import is implemented with preview, run logging, raw imported rows, auto-match by email or phone, and review outcomes for uncertain cases.
+- Website booking import is not implemented yet, but the internal booking-shell types, paths, and `/admin/bookings` overview are now in place.
+- Settings now holds lower-frequency master-data and import/export tools instead of keeping them all in the main sidebar.
+- Boat trip pricing is implemented for boat plus trip type retail price and optional owner contract price.
+- Shared activity and date-range views are not implemented yet.
+- Captain portal is not implemented yet beyond the basic signed-in access landing page.
 
 ## Build Order
 
@@ -334,86 +341,36 @@ Examples:
 Goal:
 - Ensure all `/admin` routes render within the intended shared admin shell and navigation.
 
-Done when:
-- `/admin`, `/admin/captains`, `/admin/boats`, and `/admin/config` render through the shared admin shell.
-- No dead nav links remain.
-
-Out of scope:
-- boats CRUD
-- auth architecture changes
+Status:
+- Complete.
 
 ### Milestone 1 - Boats CRUD v1
 Goal:
 - Implement real boat management.
 
-Scope:
-- boat list page
-- create boat page
-- edit boat page
-- active/inactive status
-- primary captain selection
-- Firestore helpers for boats
-
-Done when:
-- admins can create, edit, deactivate, and reactivate boats
-- each boat can be assigned a primary captain
-- boats list clearly separates active and inactive boats
-
-Out of scope:
-- boat activity views
-- maintenance logs
-- rate tables
+Status:
+- Complete.
 
 ### Milestone 2 - Lodge Rooms CRUD v1
 Goal:
 - Implement management of the 8 lodge rooms as first-class assets.
 
-Scope:
-- lodge room list page
-- create/edit pages
-- active/inactive status
-
-Done when:
-- admins can manage the 8 lodge rooms individually
-- rooms behave like inventory-of-1 assets
-
-Out of scope:
-- auto room assignment
-- package booking logic
+Status:
+- Complete.
 
 ### Milestone 3 - Trip Types CRUD v1
 Goal:
 - Create admin-defined trip types and durations.
 
-Scope:
-- list/create/edit
-- durationHours
-- active/inactive status
-
-Done when:
-- admin can manage trip types
-- trip type duration is stored in hours
-
-Out of scope:
-- rate tables
-- scheduling logic
+Status:
+- Complete.
 
 ### Milestone 4 - Customers CRUD v1
 Goal:
 - Create the customer master record.
 
-Scope:
-- customer list page
-- create/edit pages
-- active/inactive status
-
-Done when:
-- admin can manage customer records manually
-- customers support active/inactive status
-
-Out of scope:
-- merge workflow
-- website-booking identity resolution
+Status:
+- Complete.
 
 ### Milestone 5 - Website Booking Import v1
 Goal:
@@ -422,18 +379,18 @@ Goal:
 Scope:
 - CSV import flow
 - import runs log
-- raw imported row preservation for audit/debug
+- raw imported row preservation for audit and debug
 - bookingGroups
 - bookingItems
-- unresolved/match-status metadata where customer or trip-type linkage is uncertain
+- unresolved and match-status metadata where customer or trip-type linkage is uncertain
 - support new bookings
-- support modifications/cancellations by status changes
+- support modifications and cancellations by status changes
 - idempotent upsert behavior where stable external IDs exist
 
 Done when:
 - admin can import website CSV data
 - imported source rows are preserved before normalization
-- imported data is preserved as raw booking groups/items without dropping unmapped fields
+- imported data is preserved as raw booking groups and items without dropping unmapped fields
 - uncertain matches survive import without unsafe forced links
 - cancellations do not delete historical imported records
 
@@ -445,25 +402,12 @@ Out of scope:
 Goal:
 - Reconcile Square customer exports into the customer master record with as much safe automation as possible.
 
-Scope:
-- Square CSV import flow
-- import preview
-- import runs and raw imported row preservation
-- import upsert behavior
-- automatic matching by email or phone
-- review records for last-name-only similarity or other uncertain cases
-- carry additional discovered names into dditionalNames`r
+Status:
+- Core import flow complete.
 
-Done when:
-- admin can import customers from Square CSV
-- matching email or phone auto-reconciles into the existing customer when safe
-- uncertain cases surface once for review instead of duplicating noise across runs
-- additional discovered names are preserved on the customer record
-- imported rows are auditable by import run
-
-Out of scope:
-- direct live Square API sync
-- merge workflow
+Remaining follow-up:
+- dedicated review and merge workflow
+- longer-term sync decisions beyond CSV import
 
 ### Milestone 7 - Customer Review / Merge v1
 Goal:
@@ -487,17 +431,15 @@ Goal:
 - Support asset-specific pricing and pay.
 
 Scope:
-- boat + trip type retail price
-- boat + trip type owner contract price
-- captain + trip type pay amount
+- boat plus trip type retail price
+- boat plus trip type owner contract price
+- captain plus trip type pay amount
 
-Done when:
-- admins can manage boatTripTypeRates
-- admins can manage captainTripTypeRates
+Status:
+- Boat trip type rate management complete.
 
-Out of scope:
-- invoice generation
-- payroll export
+Remaining follow-up:
+- captain trip type pay amounts
 
 ### Milestone 9 - Shared Activity Views v1
 Goal:
@@ -536,15 +478,15 @@ Out of scope:
 
 ### Milestone 11 - Operational Trip Assembly v1
 Goal:
-- Marry imported booking items into complete operational trip/package contexts.
+- Marry imported booking items into complete operational trip and package contexts.
 
 Scope:
-- relationship handling across trip/lodge/add-on items
+- relationship handling across trip, lodge, and add-on items
 - use booking-group data plus customer matching
 - create admin-usable assembled trip views
 
 Done when:
-- admins can view complete package/trip contexts assembled from imported components
+- admins can view complete package and trip contexts assembled from imported components
 
 Out of scope:
 - full scheduling engine
@@ -556,19 +498,19 @@ Goal:
 
 Scope:
 - trips collection
-- trip references to bookingGroups/bookingItems where applicable
+- trip references to bookingGroups and bookingItems where applicable
 - snapshot preservation
 - status fields
 
 Done when:
 - trips preserve historical snapshot values
-- trips can support invoice/log integrations later
+- trips can support invoice and log integrations later
 
 Out of scope:
 - full booking engine
 - maintenance workflow
 
-### Milestone 13 - Trip Logs and Maintenance Logs v1
+### Milestone 13 - Trip Logs And Maintenance Logs v1
 Goal:
 - Add boat-centered operational logging.
 
@@ -577,7 +519,7 @@ Scope:
 - maintenance logs
 - default captain from boat primary captain
 - allow manual override
-- preserve scheduled vs actual snapshots
+- preserve scheduled versus actual snapshots
 
 Done when:
 - logs default correctly
@@ -588,9 +530,9 @@ Out of scope:
 - analytics dashboard
 - public display
 
-## Codex Working Rules for This Roadmap
-- Work one milestone at a time.
-- Do not broaden scope inside a milestone.
+## Codex Working Rules For This Roadmap
+- Work one milestone at a time unless a tightly bounded subtask clearly belongs to an in-progress milestone.
+- Do not broaden scope inside a milestone without explicitly reordering the roadmap.
 - Prefer targeted edits over broad refactors.
 - Preserve existing working auth unless the milestone explicitly requires auth changes.
 - Do not create a repo-root `src` folder.

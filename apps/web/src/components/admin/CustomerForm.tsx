@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { db } from "@/lib/firebase/client";
 import {
+  clearCustomersCache,
   customerDocPath,
   customersCollectionPath,
   CustomerFormValues,
@@ -68,6 +69,7 @@ export default function CustomerForm({ mode, customerId, initialValues, existing
           updatedAt: serverTimestamp(),
         });
 
+        clearCustomersCache();
         router.replace(`/admin/customers/${ref.id}`);
         router.refresh();
         return;
@@ -86,6 +88,7 @@ export default function CustomerForm({ mode, customerId, initialValues, existing
         { merge: true },
       );
 
+      clearCustomersCache();
       setStatusMessage("Saved.");
       router.refresh();
     } catch (error: unknown) {

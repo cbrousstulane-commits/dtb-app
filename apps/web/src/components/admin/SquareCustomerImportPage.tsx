@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
@@ -13,6 +13,7 @@ import {
 
 import {
   appendAdditionalName,
+  clearCustomersCache,
   CustomerRecord,
   customersCollectionPath,
   normalizeAdditionalNames,
@@ -289,6 +290,7 @@ export default function SquareCustomerImportPage() {
         await batch.commit();
       }
 
+      clearCustomersCache();
       setStatusMessage(`Square import applied. Matched ${counts.matched}, created ${counts.created}, review ${counts.review}, skipped ${counts.skipped}.`);
       const nextCustomers = await loadCustomers();
       setCustomers(nextCustomers);
@@ -401,3 +403,7 @@ function PreviewRow(props: { row: SquareCustomerPreviewRow }) {
 function Pill(props: { label: string }) {
   return <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">{props.label}</span>;
 }
+
+
+
+

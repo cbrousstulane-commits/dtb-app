@@ -184,23 +184,11 @@ export default function CaptainForm({
             />
           </div>
 
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Status</div>
-            <div className="grid grid-cols-2 gap-2">
-              <StatusButton
-                active={form.status === "active"}
-                label="Active"
-                onClick={() => setForm((prev) => ({ ...prev, status: "active" }))}
-                disabled={saving}
-              />
-              <StatusButton
-                active={form.status === "inactive"}
-                label="Inactive"
-                onClick={() => setForm((prev) => ({ ...prev, status: "inactive" }))}
-                disabled={saving}
-              />
-            </div>
-          </div>
+          <StatusField
+            value={form.status}
+            disabled={saving}
+            onChange={(value) => setForm((prev) => ({ ...prev, status: value }))}
+          />
 
           <TextAreaField
             label="Notes"
@@ -308,26 +296,23 @@ function ToggleRow(props: {
   );
 }
 
-function StatusButton(props: {
-  active: boolean;
-  label: string;
+function StatusField(props: {
+  value: CaptainFormValues["status"];
   disabled?: boolean;
-  onClick: () => void;
+  onChange: (value: CaptainFormValues["status"]) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      disabled={props.disabled}
-      className={[
-        "h-12 rounded-xl border text-sm font-medium",
-        props.active
-          ? "border-white/25 bg-white/10"
-          : "border-white/10 bg-white/5 active:bg-white/10",
-        props.disabled ? "opacity-60" : "",
-      ].join(" ")}
-    >
-      {props.label}
-    </button>
+    <label className="block space-y-2">
+      <div className="text-sm font-medium">Status</div>
+      <select
+        value={props.value}
+        disabled={props.disabled}
+        onChange={(event) => props.onChange(event.target.value === "inactive" ? "inactive" : "active")}
+        className="h-12 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-base outline-none focus:border-white/25 disabled:opacity-60"
+      >
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </label>
   );
 }

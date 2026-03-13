@@ -5,9 +5,14 @@ import React from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import { AccessUserRecord, accessUsersCollectionPath } from "@/lib/admin/accessUsers";
+import { CaptainRecord, captainsCollectionPath } from "@/lib/admin/captains";
 import { db } from "@/lib/firebase/client";
 
 type AccessUserListItem = AccessUserRecord & {
+  id: string;
+};
+
+type CaptainAccessListItem = CaptainRecord & {
   id: string;
 };
 
@@ -25,6 +30,7 @@ export default function AccessUsersList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [items, setItems] = React.useState<AccessUserListItem[]>([]);
+  const [captains, setCaptains] = React.useState<CaptainAccessListItem[]>([]);
 
   React.useEffect(() => {
     const q = query(collection(db, ...accessUsersCollectionPath), orderBy("name"));
@@ -62,18 +68,57 @@ export default function AccessUsersList() {
     return () => unsubscribe();
   }, []);
 
+  React.useEffect(() => {
+    const q = query(collection(db, ...captainsCollectionPath), orderBy("name"));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const next: CaptainAccessListItem[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as Partial<CaptainRecord>;
+          return {
+            id: docSnap.id,
+            name: data.name ?? "",
+            nameLower: data.nameLower ?? "",
+            slug: data.slug ?? "",
+            email: data.email ?? "",
+            authUid: data.authUid ?? "",
+            adminAccess: data.adminAccess === true,
+            status: data.status === "inactive" ? "inactive" : "active",
+            notes: data.notes ?? "",
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          };
+        });
+
+        setCaptains(next);
+        setError(null);
+        setLoading(false);
+      },
+      (snapshotError) => {
+        setError(errorMessage(snapshotError));
+        setLoading(false);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const activeItems = items.filter((item) => item.status === "active");
   const inactiveItems = items.filter((item) => item.status === "inactive");
   const adminCount = items.filter((item) => item.role === "admin" && item.status === "active").length;
+  const activeCaptains = captains.filter((item) => item.status === "active");
+  const inactiveCaptains = captains.filter((item) => item.status === "inactive");
+  const captainAdmins = captains.filter((item) => item.status === "active" && item.adminAccess).length;
 
   return (
     <div className="space-y-4">
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-lg font-semibold">Access Users</div>
+            <div className="text-lg font-semibold">Users and Captains</div>
             <div className="mt-1 text-sm opacity-75">
-              Manage Google-email access for non-captain staff and admin users. Claims are assigned automatically after sign-in.
+              Manage Google-email access for non-captain staff and admin users here, and view captain access records in the same place.
             </div>
           </div>
 
@@ -85,25 +130,28 @@ export default function AccessUsersList() {
           </Link>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          <SummaryCard label="Active" value={String(activeItems.length)} />
-          <SummaryCard label="Inactive" value={String(inactiveItems.length)} />
-          <SummaryCard label="Admins" value={String(adminCount)} />
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <SummaryCard label="Active users" value={String(activeItems.length)} />
+          <SummaryCard label="User admins" value={String(adminCount)} />
+          <SummaryCard label="Active captains" value={String(activeCaptains.length)} />
+          <SummaryCard label="Captain admins" value={String(captainAdmins)} />
         </div>
       </section>
 
       {loading ? (
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm opacity-80">
-          Loading access users...
+          Loading users and captains...
         </section>
       ) : error ? (
         <section className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm">
-          Failed to load access users: {error}
+          Failed to load access records: {error}
         </section>
       ) : (
         <>
           <AccessUserSection title="Active users" items={activeItems} emptyLabel="No active access users yet." />
           <AccessUserSection title="Inactive users" items={inactiveItems} emptyLabel="No inactive access users." />
+          <CaptainSection title="Active captains" items={activeCaptains} emptyLabel="No active captains." />
+          <CaptainSection title="Inactive captains" items={inactiveCaptains} emptyLabel="No inactive captains." />
         </>
       )}
     </div>
@@ -139,6 +187,26 @@ function AccessUserSection(props: {
   );
 }
 
+function CaptainSection(props: {
+  title: string;
+  items: CaptainAccessListItem[];
+  emptyLabel: string;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="text-sm font-semibold">{props.title}</div>
+
+      <div className="mt-3 space-y-3">
+        {props.items.length === 0 ? (
+          <div className="text-sm opacity-70">{props.emptyLabel}</div>
+        ) : (
+          props.items.map((item) => <CaptainRow key={item.id} item={item} />)
+        )}
+      </div>
+    </section>
+  );
+}
+
 function AccessUserRow({ item }: { item: AccessUserListItem }) {
   return (
     <Link
@@ -153,6 +221,30 @@ function AccessUserRow({ item }: { item: AccessUserListItem }) {
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <Pill label={item.status === "active" ? "Active" : "Inactive"} />
             <Pill label={item.role === "admin" ? "Admin" : "User"} />
+            <Pill label={item.authUid ? "Auth linked" : "Auth not linked"} />
+          </div>
+        </div>
+
+        <div className="text-sm opacity-60">{"->"}</div>
+      </div>
+    </Link>
+  );
+}
+
+function CaptainRow({ item }: { item: CaptainAccessListItem }) {
+  return (
+    <Link
+      href={`/admin/captains/${item.id}`}
+      className="block rounded-2xl border border-white/10 bg-black/20 p-4 active:bg-white/10"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-semibold truncate">{item.name || "Unnamed captain"}</div>
+          <div className="mt-1 text-xs opacity-70 truncate">{item.email || "No email"}</div>
+
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <Pill label={item.status === "active" ? "Active" : "Inactive"} />
+            <Pill label={item.adminAccess ? "Captain admin" : "Captain"} />
             <Pill label={item.authUid ? "Auth linked" : "Auth not linked"} />
           </div>
         </div>

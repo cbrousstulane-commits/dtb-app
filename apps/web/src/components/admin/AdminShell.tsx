@@ -14,7 +14,6 @@ type NavItem = {
 
 const PRIMARY_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: GridIcon },
-  { href: "/admin/boats", label: "Boats", icon: BoatIcon },
   { href: "/admin/bookings", label: "Bookings", icon: TicketIcon },
   { href: "/admin/customers", label: "Customers", icon: UsersIcon },
   { href: "/admin/lodge-rooms", label: "Rooms", icon: BedIcon },
@@ -120,7 +119,7 @@ function Sidebar(props: {
       <div className="mt-auto rounded-[24px] bg-slate-900 px-4 py-4 text-white">
         <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Admin Session</div>
         <div className="mt-2 text-sm font-medium">Shared admin shell active</div>
-        <div className="mt-1 text-sm text-slate-300">Use settings for trip types, captains, and data import/export.</div>
+        <div className="mt-1 text-sm text-slate-300">Use settings for boats, trip types, captains, and data import/export.</div>
       </div>
     </div>
   );
@@ -153,47 +152,27 @@ function iconClass(active: boolean) {
 function GridIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></SvgBox>;
 }
-
-function BoatIcon({ active }: { active: boolean }) {
-  return <SvgBox className={iconClass(active)}><path d="M3 13l9-4 9 4M5 13v4h14v-4M7 17c1 2 2.5 3 5 3s4-1 5-3" /></SvgBox>;
-}
-
 function TicketIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M5 7h14v4a2 2 0 0 0 0 4v4H5v-4a2 2 0 0 0 0-4V7Zm4 0v12" /></SvgBox>;
 }
-
 function UsersIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M9 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7 1a3 3 0 1 0 0-6M4 19a5 5 0 0 1 10 0M15 19a4 4 0 0 1 5 0" /></SvgBox>;
 }
-
 function BedIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M4 12V7h5a3 3 0 0 1 3 3v2M4 12h16v5H4zM16 12V9a2 2 0 1 1 4 0v3" /></SvgBox>;
 }
-
 function ShieldIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M12 4 5 7v5c0 4.5 2.9 7 7 8 4.1-1 7-3.5 7-8V7l-7-3Z" /></SvgBox>;
 }
-
 function GearIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm7.5 3.5-1.9.7a6 6 0 0 1-.5 1.2l.8 1.8-1.7 1.7-1.8-.8a6 6 0 0 1-1.2.5l-.7 1.9h-2.4l-.7-1.9a6 6 0 0 1-1.2-.5l-1.8.8-1.7-1.7.8-1.8a6 6 0 0 1-.5-1.2L4.5 12v-2.4l1.9-.7a6 6 0 0 1 .5-1.2l-.8-1.8 1.7-1.7 1.8.8a6 6 0 0 1 1.2-.5l.7-1.9h2.4l.7 1.9a6 6 0 0 1 1.2.5l1.8-.8 1.7 1.7-.8 1.8c.2.4.4.8.5 1.2l1.9.7Z" /></SvgBox>;
 }
-
 function BoltIcon({ active }: { active: boolean }) {
   return <SvgBox className={iconClass(active)}><path d="M13 2 6 13h5l-1 9 8-12h-5l0-8Z" /></SvgBox>;
 }
-
 function MenuIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-      <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
-    </svg>
-  );
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" /></svg>;
 }
-
 function SvgBox(props: { children: React.ReactNode; className: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={cn("h-4.5 w-4.5", props.className)}>
-      {props.children}
-    </svg>
-  );
+  return <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={cn("h-4.5 w-4.5", props.className)}>{props.children}</svg>;
 }

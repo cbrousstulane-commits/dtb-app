@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
 import {
   collection,
   doc,
-  onSnapshot,
+  getDocs,
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
@@ -35,6 +35,12 @@ type EditableRateRow = {
   ownerContractPrice: string;
 };
 
+type PricingData = {
+  boats: BoatRateBoatOption[];
+  tripTypes: BoatRateTripTypeOption[];
+  items: BoatTripTypeRateListItem[];
+};
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
@@ -55,6 +61,56 @@ function makeRow(seed?: Partial<EditableRateRow>): EditableRateRow {
   };
 }
 
+async function loadPricingData(): Promise<PricingData> {
+  const [boatsSnapshot, tripTypesSnapshot, ratesSnapshot] = await Promise.all([
+    getDocs(collection(db, ...boatsCollectionPath)),
+    getDocs(collection(db, ...tripTypesCollectionPath)),
+    getDocs(collection(db, ...boatTripTypeRatesCollectionPath)),
+  ]);
+
+  const boats = boatsSnapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data() as Partial<BoatRecord>;
+      return {
+        id: docSnap.id,
+        name: data.name ?? "",
+        status: data.status === "inactive" ? "inactive" : "active",
+      } satisfies BoatRateBoatOption;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+  const tripTypes = tripTypesSnapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data() as Partial<TripTypeRecord>;
+      return {
+        id: docSnap.id,
+        name: data.name ?? "",
+        status: data.status === "inactive" ? "inactive" : "active",
+      } satisfies BoatRateTripTypeOption;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+  const items = ratesSnapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data() as Partial<BoatTripTypeRateRecord>;
+      return {
+        id: docSnap.id,
+        boatId: data.boatId ?? "",
+        boatNameSnapshot: data.boatNameSnapshot ?? "",
+        tripTypeId: data.tripTypeId ?? "",
+        tripTypeNameSnapshot: data.tripTypeNameSnapshot ?? "",
+        retailPrice: typeof data.retailPrice === "number" ? data.retailPrice : 0,
+        ownerContractPrice: typeof data.ownerContractPrice === "number" ? data.ownerContractPrice : null,
+        status: data.status === "inactive" ? ("inactive" as const) : ("active" as const),
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      } satisfies BoatTripTypeRateListItem;
+    })
+    .sort(compareRates);
+
+  return { boats, tripTypes, items };
+}
+
 export default function BoatTripTypeRatesList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -66,96 +122,39 @@ export default function BoatTripTypeRatesList() {
   const [saving, setSaving] = React.useState(false);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
 
+  const reloadPricingData = React.useCallback(async () => {
+    const next = await loadPricingData();
+    setBoats(next.boats);
+    setTripTypes(next.tripTypes);
+    setItems(next.items);
+  }, []);
+
   React.useEffect(() => {
-    let boatsReady = false;
-    let tripTypesReady = false;
-    let ratesReady = false;
+    let cancelled = false;
 
-    const updateLoading = () => setLoading(!(boatsReady && tripTypesReady && ratesReady));
+    async function load() {
+      try {
+        const next = await loadPricingData();
+        if (cancelled) return;
+        setBoats(next.boats);
+        setTripTypes(next.tripTypes);
+        setItems(next.items);
+        setError(null);
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
 
-    const unsubBoats = onSnapshot(
-      collection(db, ...boatsCollectionPath),
-      (snapshot) => {
-        const next = snapshot.docs
-          .map((docSnap) => {
-            const data = docSnap.data() as Partial<BoatRecord>;
-            return {
-              id: docSnap.id,
-              name: data.name ?? "",
-              status: data.status === "inactive" ? "inactive" : "active",
-            } satisfies BoatRateBoatOption;
-          })
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-        setBoats(next);
-        boatsReady = true;
-        updateLoading();
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        boatsReady = true;
-        updateLoading();
-      },
-    );
-
-    const unsubTripTypes = onSnapshot(
-      collection(db, ...tripTypesCollectionPath),
-      (snapshot) => {
-        const next = snapshot.docs
-          .map((docSnap) => {
-            const data = docSnap.data() as Partial<TripTypeRecord>;
-            return {
-              id: docSnap.id,
-              name: data.name ?? "",
-              status: data.status === "inactive" ? "inactive" : "active",
-            } satisfies BoatRateTripTypeOption;
-          })
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-        setTripTypes(next);
-        tripTypesReady = true;
-        updateLoading();
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        tripTypesReady = true;
-        updateLoading();
-      },
-    );
-
-    const unsubRates = onSnapshot(
-      collection(db, ...boatTripTypeRatesCollectionPath),
-      (snapshot) => {
-        const next = snapshot.docs
-          .map((docSnap) => {
-            const data = docSnap.data() as Partial<BoatTripTypeRateRecord>;
-            return {
-              id: docSnap.id,
-              boatId: data.boatId ?? "",
-              boatNameSnapshot: data.boatNameSnapshot ?? "",
-              tripTypeId: data.tripTypeId ?? "",
-              tripTypeNameSnapshot: data.tripTypeNameSnapshot ?? "",
-              retailPrice: typeof data.retailPrice === "number" ? data.retailPrice : 0,
-              ownerContractPrice: typeof data.ownerContractPrice === "number" ? data.ownerContractPrice : null,
-              status: data.status === "inactive" ? ("inactive" as const) : ("active" as const),
-              createdAt: data.createdAt,
-              updatedAt: data.updatedAt,
-            };
-          })
-          .sort(compareRates);
-        setItems(next);
-        ratesReady = true;
-        updateLoading();
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        ratesReady = true;
-        updateLoading();
-      },
-    );
+    void load();
 
     return () => {
-      unsubBoats();
-      unsubTripTypes();
-      unsubRates();
+      cancelled = true;
     };
   }, []);
 
@@ -208,16 +207,14 @@ export default function BoatTripTypeRatesList() {
         throw new Error("Add at least one trip pricing row.");
       }
 
-      const duplicateTripTypes = findDuplicateTripTypes(normalizedRows);
+      const duplicateTripTypes = findDuplicateTripTypes(normalizedRows, tripTypes);
       if (duplicateTripTypes.length > 0) {
         throw new Error(`Trip type can only appear once per boat. Duplicate: ${duplicateTripTypes.join(", ")}`);
       }
 
       const batch = writeBatch(db);
       const usedExistingIds = new Set<string>();
-      const reusableInactiveByTripType = new Map(
-        inactiveRatesForBoat.map((item) => [item.tripTypeId, item]),
-      );
+      const reusableInactiveByTripType = new Map(inactiveRatesForBoat.map((item) => [item.tripTypeId, item]));
 
       for (const row of normalizedRows) {
         const formValues: BoatTripTypeRateFormValues = {
@@ -260,7 +257,9 @@ export default function BoatTripTypeRatesList() {
       }
 
       await batch.commit();
+      await reloadPricingData();
       setStatusMessage(`Saved trip pricing for ${selectedBoat.name || "selected boat"}.`);
+      setError(null);
     } catch (saveError) {
       setStatusMessage(errorMessage(saveError));
     } finally {
@@ -425,16 +424,18 @@ export default function BoatTripTypeRatesList() {
   );
 }
 
-function findDuplicateTripTypes(rows: EditableRateRow[]) {
+function findDuplicateTripTypes(rows: EditableRateRow[], tripTypes: BoatRateTripTypeOption[]) {
   const counts = new Map<string, number>();
   for (const row of rows) {
     const tripTypeId = row.tripTypeId.trim();
     if (!tripTypeId) continue;
     counts.set(tripTypeId, (counts.get(tripTypeId) ?? 0) + 1);
   }
+
+  const tripTypeNames = new Map(tripTypes.map((item) => [item.id, item.name || item.id]));
   return Array.from(counts.entries())
     .filter(([, count]) => count > 1)
-    .map(([tripTypeId]) => tripTypeId);
+    .map(([tripTypeId]) => tripTypeNames.get(tripTypeId) ?? tripTypeId);
 }
 
 function compareRates(a: BoatTripTypeRateListItem, b: BoatTripTypeRateListItem) {

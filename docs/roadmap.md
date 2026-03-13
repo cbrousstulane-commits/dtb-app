@@ -325,6 +325,7 @@ Examples:
 - Lodge rooms CRUD v1 is implemented with list, create, edit, active and inactive status, and an 8-room cap.
 - Customers CRUD v1 is implemented with manual list, create, edit, active and inactive status, unified search, and 10-per-page pagination.
 - Customers list now uses one-time loads plus short session caching instead of a live full-collection listener for routine admin browsing.
+- Admin browse and setup screens now default to one-time loads instead of full-collection realtime listeners, including captains, boats, lodge rooms, trip types, users, booking overview, and trip pricing.
 - Trip types CRUD v1 is implemented with list, create, edit, `durationHours`, and active and inactive status.
 - Non-captain access users CRUD is implemented for limited user and admin access by Google email.
 - `/access` exists as the signed-in non-admin landing page.
@@ -539,3 +540,4 @@ Out of scope:
 - Use separate collections for first-class entities.
 - Prefer deactivation over deletion.
 - Preserve history with snapshots on operational records.
+

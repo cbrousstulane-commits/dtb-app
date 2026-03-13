@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 
 import {
   bookingGroupsCollectionPath,
@@ -26,6 +26,20 @@ function errorMessage(error: unknown): string {
   }
 }
 
+async function loadCounts(): Promise<Counts> {
+  const [importRuns, bookingGroups, bookingItems] = await Promise.all([
+    getDocs(collection(db, ...bookingImportRunsCollectionPath)),
+    getDocs(collection(db, ...bookingGroupsCollectionPath)),
+    getDocs(collection(db, ...bookingItemsCollectionPath)),
+  ]);
+
+  return {
+    importRuns: importRuns.size,
+    bookingGroups: bookingGroups.size,
+    bookingItems: bookingItems.size,
+  };
+}
+
 export default function WebsiteBookingsOverview() {
   const [counts, setCounts] = React.useState<Counts>({
     importRuns: 0,
@@ -36,56 +50,29 @@ export default function WebsiteBookingsOverview() {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    let settled = 0;
-    const total = 3;
+    let cancelled = false;
 
-    function markLoaded() {
-      settled += 1;
-      if (settled >= total) {
-        setLoading(false);
+    async function load() {
+      try {
+        const next = await loadCounts();
+        if (cancelled) return;
+        setCounts(next);
+        setError(null);
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
-    const unsubImportRuns = onSnapshot(
-      collection(db, ...bookingImportRunsCollectionPath),
-      (snapshot) => {
-        setCounts((prev) => ({ ...prev, importRuns: snapshot.size }));
-        markLoaded();
-      },
-      (loadError) => {
-        setError(errorMessage(loadError));
-        setLoading(false);
-      },
-    );
-
-    const unsubGroups = onSnapshot(
-      collection(db, ...bookingGroupsCollectionPath),
-      (snapshot) => {
-        setCounts((prev) => ({ ...prev, bookingGroups: snapshot.size }));
-        markLoaded();
-      },
-      (loadError) => {
-        setError(errorMessage(loadError));
-        setLoading(false);
-      },
-    );
-
-    const unsubItems = onSnapshot(
-      collection(db, ...bookingItemsCollectionPath),
-      (snapshot) => {
-        setCounts((prev) => ({ ...prev, bookingItems: snapshot.size }));
-        markLoaded();
-      },
-      (loadError) => {
-        setError(errorMessage(loadError));
-        setLoading(false);
-      },
-    );
+    void load();
 
     return () => {
-      unsubImportRuns();
-      unsubGroups();
-      unsubItems();
+      cancelled = true;
     };
   }, []);
 
@@ -142,7 +129,7 @@ export default function WebsiteBookingsOverview() {
         <div className="mt-3 space-y-2 text-sm opacity-80">
           <div>1. Preserve the website CSV data first as raw booking groups and booking items.</div>
           <div>2. Keep unresolved customer and trip-type matching safe instead of forcing guessed links.</div>
-          <div>3. Let cancellations and modifications survive as status/history, not destructive deletes.</div>
+          <div>3. Let cancellations and modifications survive as status and history, not destructive deletes.</div>
           <div>4. Assemble operational trip contexts later from preserved imported components.</div>
         </div>
       </section>

@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
 import { db } from "@/lib/firebase/client";
 import { TripTypeRecord, tripTypesCollectionPath } from "@/lib/admin/tripTypes";
@@ -21,43 +21,54 @@ function errorMessage(error: unknown): string {
   }
 }
 
+async function loadTripTypes() {
+  const snapshot = await getDocs(query(collection(db, ...tripTypesCollectionPath), orderBy("name")));
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<TripTypeRecord>;
+
+    return {
+      id: docSnap.id,
+      name: data.name ?? "",
+      nameLower: data.nameLower ?? "",
+      slug: data.slug ?? "",
+      durationHours: typeof data.durationHours === "number" ? data.durationHours : 0,
+      status: data.status === "inactive" ? "inactive" : "active",
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    } satisfies TripTypeListItem;
+  });
+}
+
 export default function TripTypesList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [items, setItems] = React.useState<TripTypeListItem[]>([]);
 
   React.useEffect(() => {
-    const q = query(collection(db, ...tripTypesCollectionPath), orderBy("name"));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const next: TripTypeListItem[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<TripTypeRecord>;
-
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            nameLower: data.nameLower ?? "",
-            slug: data.slug ?? "",
-            durationHours: typeof data.durationHours === "number" ? data.durationHours : 0,
-            status: data.status === "inactive" ? "inactive" : "active",
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-          };
-        });
-
+    async function load() {
+      try {
+        const next = await loadTripTypes();
+        if (cancelled) return;
         setItems(next);
         setError(null);
-        setLoading(false);
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        setLoading(false);
-      },
-    );
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
 
-    return () => unsubscribe();
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const activeTripTypes = items.filter((item) => item.status === "active");

@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
 import { AccessUserRecord, accessUsersCollectionPath } from "@/lib/admin/accessUsers";
 import { CaptainRecord, captainsCollectionPath } from "@/lib/admin/captains";
@@ -26,6 +26,46 @@ function errorMessage(error: unknown): string {
   }
 }
 
+async function loadAccessUsers() {
+  const snapshot = await getDocs(query(collection(db, ...accessUsersCollectionPath), orderBy("name")));
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<AccessUserRecord>;
+
+    return {
+      id: docSnap.id,
+      name: data.name ?? "",
+      nameLower: data.nameLower ?? "",
+      email: data.email ?? "",
+      authUid: data.authUid ?? "",
+      role: data.role === "admin" ? "admin" : "user",
+      status: data.status === "inactive" ? "inactive" : "active",
+      notes: data.notes ?? "",
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    } satisfies AccessUserListItem;
+  });
+}
+
+async function loadCaptains() {
+  const snapshot = await getDocs(query(collection(db, ...captainsCollectionPath), orderBy("name")));
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<CaptainRecord>;
+    return {
+      id: docSnap.id,
+      name: data.name ?? "",
+      nameLower: data.nameLower ?? "",
+      slug: data.slug ?? "",
+      email: data.email ?? "",
+      authUid: data.authUid ?? "",
+      adminAccess: data.adminAccess === true,
+      status: data.status === "inactive" ? "inactive" : "active",
+      notes: data.notes ?? "",
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    } satisfies CaptainAccessListItem;
+  });
+}
+
 export default function AccessUsersList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -33,75 +73,31 @@ export default function AccessUsersList() {
   const [captains, setCaptains] = React.useState<CaptainAccessListItem[]>([]);
 
   React.useEffect(() => {
-    const q = query(collection(db, ...accessUsersCollectionPath), orderBy("name"));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const next: AccessUserListItem[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<AccessUserRecord>;
-
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            nameLower: data.nameLower ?? "",
-            email: data.email ?? "",
-            authUid: data.authUid ?? "",
-            role: data.role === "admin" ? "admin" : "user",
-            status: data.status === "inactive" ? "inactive" : "active",
-            notes: data.notes ?? "",
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-          };
-        });
-
-        setItems(next);
+    async function load() {
+      try {
+        const [nextUsers, nextCaptains] = await Promise.all([loadAccessUsers(), loadCaptains()]);
+        if (cancelled) return;
+        setItems(nextUsers);
+        setCaptains(nextCaptains);
         setError(null);
-        setLoading(false);
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        setLoading(false);
-      },
-    );
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
 
-    return () => unsubscribe();
-  }, []);
+    void load();
 
-  React.useEffect(() => {
-    const q = query(collection(db, ...captainsCollectionPath), orderBy("name"));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const next: CaptainAccessListItem[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<CaptainRecord>;
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            nameLower: data.nameLower ?? "",
-            slug: data.slug ?? "",
-            email: data.email ?? "",
-            authUid: data.authUid ?? "",
-            adminAccess: data.adminAccess === true,
-            status: data.status === "inactive" ? "inactive" : "active",
-            notes: data.notes ?? "",
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-          };
-        });
-
-        setCaptains(next);
-        setError(null);
-        setLoading(false);
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        setLoading(false);
-      },
-    );
-
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const activeItems = items.filter((item) => item.status === "active");

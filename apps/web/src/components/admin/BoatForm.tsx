@@ -6,7 +6,7 @@ import {
   addDoc,
   collection,
   doc,
-  onSnapshot,
+  getDocs,
   orderBy,
   query,
   serverTimestamp,
@@ -44,6 +44,19 @@ function errorMessage(error: unknown): string {
   }
 }
 
+async function loadCaptains() {
+  const snapshot = await getDocs(query(collection(db, ...captainsCollectionPath), orderBy("name")));
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<CaptainRecord>;
+
+    return {
+      id: docSnap.id,
+      name: data.name ?? "",
+      status: data.status === "inactive" ? "inactive" : "active",
+    } satisfies CaptainOption;
+  });
+}
+
 export default function BoatForm({ mode, boatId, initialValues }: BoatFormProps) {
   const router = useRouter();
 
@@ -67,32 +80,30 @@ export default function BoatForm({ mode, boatId, initialValues }: BoatFormProps)
   }, [initialValues]);
 
   React.useEffect(() => {
-    const q = query(collection(db, ...captainsCollectionPath), orderBy("name"));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const next: CaptainOption[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<CaptainRecord>;
-
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            status: data.status === "inactive" ? "inactive" : "active",
-          };
-        });
-
+    async function load() {
+      try {
+        const next = await loadCaptains();
+        if (cancelled) return;
         setCaptains(next);
         setCaptainsError(null);
-        setCaptainsLoading(false);
-      },
-      (loadError) => {
-        setCaptainsError(errorMessage(loadError));
-        setCaptainsLoading(false);
-      },
-    );
+      } catch (loadError) {
+        if (!cancelled) {
+          setCaptainsError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setCaptainsLoading(false);
+        }
+      }
+    }
 
-    return () => unsubscribe();
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const availableCaptains = React.useMemo(() => {
@@ -319,4 +330,3 @@ function StatusButton(props: {
     </button>
   );
 }
-

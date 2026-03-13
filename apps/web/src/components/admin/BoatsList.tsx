@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import React from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
 import { db } from "@/lib/firebase/client";
 import { BoatRecord, boatsCollectionPath } from "@/lib/admin/boats";
@@ -21,44 +21,55 @@ function errorMessage(error: unknown): string {
   }
 }
 
+async function loadBoats() {
+  const snapshot = await getDocs(query(collection(db, ...boatsCollectionPath), orderBy("name")));
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<BoatRecord>;
+
+    return {
+      id: docSnap.id,
+      name: data.name ?? "",
+      nameLower: data.nameLower ?? "",
+      slug: data.slug ?? "",
+      primaryCaptainId: data.primaryCaptainId ?? "",
+      primaryCaptainNameSnapshot: data.primaryCaptainNameSnapshot ?? "",
+      status: data.status === "inactive" ? "inactive" : "active",
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    } satisfies BoatListItem;
+  });
+}
+
 export default function BoatsList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [items, setItems] = React.useState<BoatListItem[]>([]);
 
   React.useEffect(() => {
-    const q = query(collection(db, ...boatsCollectionPath), orderBy("name"));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const next: BoatListItem[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<BoatRecord>;
-
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            nameLower: data.nameLower ?? "",
-            slug: data.slug ?? "",
-            primaryCaptainId: data.primaryCaptainId ?? "",
-            primaryCaptainNameSnapshot: data.primaryCaptainNameSnapshot ?? "",
-            status: data.status === "inactive" ? "inactive" : "active",
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-          };
-        });
-
+    async function load() {
+      try {
+        const next = await loadBoats();
+        if (cancelled) return;
         setItems(next);
         setError(null);
-        setLoading(false);
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        setLoading(false);
-      },
-    );
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
 
-    return () => unsubscribe();
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const activeBoats = items.filter((item) => item.status === "active");
@@ -166,4 +177,3 @@ function Pill({ label }: { label: string }) {
     </span>
   );
 }
-

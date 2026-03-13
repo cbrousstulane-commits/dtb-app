@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
 import { CaptainRecord, captainsCollectionPath } from "@/lib/admin/captains";
 import { db } from "@/lib/firebase/client";
@@ -21,46 +21,57 @@ function errorMessage(error: unknown): string {
   }
 }
 
+async function loadCaptains() {
+  const snapshot = await getDocs(query(collection(db, ...captainsCollectionPath), orderBy("name")));
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<CaptainRecord>;
+
+    return {
+      id: docSnap.id,
+      name: data.name ?? "",
+      nameLower: data.nameLower ?? "",
+      slug: data.slug ?? "",
+      email: data.email ?? "",
+      authUid: data.authUid ?? "",
+      adminAccess: data.adminAccess === true,
+      status: data.status === "inactive" ? "inactive" : "active",
+      notes: data.notes ?? "",
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    } satisfies CaptainListItem;
+  });
+}
+
 export default function CaptainsList() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [items, setItems] = React.useState<CaptainListItem[]>([]);
 
   React.useEffect(() => {
-    const q = query(collection(db, ...captainsCollectionPath), orderBy("name"));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const next: CaptainListItem[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<CaptainRecord>;
-
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            nameLower: data.nameLower ?? "",
-            slug: data.slug ?? "",
-            email: data.email ?? "",
-            authUid: data.authUid ?? "",
-            adminAccess: data.adminAccess === true,
-            status: data.status === "inactive" ? "inactive" : "active",
-            notes: data.notes ?? "",
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt,
-          };
-        });
-
+    async function load() {
+      try {
+        const next = await loadCaptains();
+        if (cancelled) return;
         setItems(next);
         setError(null);
-        setLoading(false);
-      },
-      (snapshotError) => {
-        setError(errorMessage(snapshotError));
-        setLoading(false);
-      },
-    );
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
 
-    return () => unsubscribe();
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const activeCaptains = items.filter((item) => item.status === "active");

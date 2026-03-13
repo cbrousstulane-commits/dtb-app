@@ -75,3 +75,13 @@ Polished the customers experience and reduced repeated Firestore reads during ad
 - Limited customer pagination to 10 per page and added unified search across name, email, and phone.
 - Replaced the customers page full-collection realtime listener with one-time loads plus short session caching.
 - Added customer-cache invalidation on customer save and Square import apply so repeated browsing stays lighter without serving stale data after writes.
+
+## 2026-03-13 - Broader admin read-efficiency pass
+
+### Summary
+Removed the remaining unnecessary full-collection realtime listeners from admin browse and setup screens so routine testing does not keep rereading Firestore data in the background.
+
+### Completed
+- Converted access users, captains, boats, lodge rooms, trip types, website booking overview, boat form, boat-rate form, and trip-pricing grid loads to one-time fetches.
+- Kept functional behavior the same for browse and setup screens by reloading after writes instead of holding live subscriptions open.
+- Verified there are no remaining onSnapshot calls under pps/web/src after this pass.

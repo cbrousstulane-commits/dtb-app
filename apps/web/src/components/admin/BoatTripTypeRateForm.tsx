@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import React from "react";
@@ -6,8 +6,7 @@ import {
   addDoc,
   collection,
   doc,
-  onSnapshot,
-  query,
+  getDocs,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
@@ -44,6 +43,30 @@ function errorMessage(error: unknown): string {
   }
 }
 
+async function loadBoatOptions() {
+  const snapshot = await getDocs(collection(db, ...boatsCollectionPath));
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<BoatRecord>;
+    return {
+      id: docSnap.id,
+      name: data.name ?? "",
+      status: data.status === "inactive" ? "inactive" : "active",
+    } satisfies BoatRateBoatOption;
+  });
+}
+
+async function loadTripTypeOptions() {
+  const snapshot = await getDocs(collection(db, ...tripTypesCollectionPath));
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() as Partial<TripTypeRecord>;
+    return {
+      id: docSnap.id,
+      name: data.name ?? "",
+      status: data.status === "inactive" ? "inactive" : "active",
+    } satisfies BoatRateTripTypeOption;
+  });
+}
+
 export default function BoatTripTypeRateForm({ mode, rateId, initialValues }: BoatTripTypeRateFormProps) {
   const router = useRouter();
 
@@ -65,56 +88,30 @@ export default function BoatTripTypeRateForm({ mode, rateId, initialValues }: Bo
   }, [initialValues]);
 
   React.useEffect(() => {
-    let boatsReady = false;
-    let tripTypesReady = false;
+    let cancelled = false;
 
-    const boatUnsub = onSnapshot(
-      query(collection(db, ...boatsCollectionPath)),
-      (snapshot) => {
-        const next = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<BoatRecord>;
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            status: data.status === "inactive" ? "inactive" : "active",
-          } satisfies BoatRateBoatOption;
-        });
-        setBoats(next);
-        boatsReady = true;
-        setLoadingOptions(!(boatsReady && tripTypesReady));
+    async function load() {
+      try {
+        const [nextBoats, nextTripTypes] = await Promise.all([loadBoatOptions(), loadTripTypeOptions()]);
+        if (cancelled) return;
+        setBoats(nextBoats);
+        setTripTypes(nextTripTypes);
         setOptionsError(null);
-      },
-      (error) => {
-        setOptionsError(errorMessage(error));
-        setLoadingOptions(false);
-      },
-    );
+      } catch (loadError) {
+        if (!cancelled) {
+          setOptionsError(errorMessage(loadError));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingOptions(false);
+        }
+      }
+    }
 
-    const tripTypeUnsub = onSnapshot(
-      query(collection(db, ...tripTypesCollectionPath)),
-      (snapshot) => {
-        const next = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Partial<TripTypeRecord>;
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            status: data.status === "inactive" ? "inactive" : "active",
-          } satisfies BoatRateTripTypeOption;
-        });
-        setTripTypes(next);
-        tripTypesReady = true;
-        setLoadingOptions(!(boatsReady && tripTypesReady));
-        setOptionsError(null);
-      },
-      (error) => {
-        setOptionsError(errorMessage(error));
-        setLoadingOptions(false);
-      },
-    );
+    void load();
 
     return () => {
-      boatUnsub();
-      tripTypeUnsub();
+      cancelled = true;
     };
   }, []);
 
@@ -260,7 +257,6 @@ async function findDuplicateRate(input: { rateId?: string; boatId: string; tripT
 }
 
 async function onetimeRates() {
-  const { getDocs } = await import("firebase/firestore");
   const snapshot = await getDocs(collection(db, ...boatTripTypeRatesCollectionPath));
   return snapshot.docs.map((docSnap) => {
     const data = docSnap.data() as Partial<BoatTripTypeRateRecord>;

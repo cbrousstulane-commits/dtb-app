@@ -17,6 +17,7 @@ export type CustomerRecord = {
   additionalEmails: string[];
   phone: string;
   additionalPhones: string[];
+  mergeIgnoreKeys: string[];
   source: CustomerSource;
   squareCustomerId: string;
   websiteCustomerId: string;
@@ -100,6 +101,10 @@ export function normalizeAdditionalPhones(value: unknown): string[] {
   return normalizeStringArray(value, normalizePhone);
 }
 
+export function normalizeMergeIgnoreKeys(value: unknown): string[] {
+  return normalizeStringArray(value, (item) => item.trim().toLowerCase());
+}
+
 export function appendAdditionalName(existingNames: string[], fullName: string): string[] {
   const next = normalizeAdditionalNames(existingNames);
   const trimmed = fullName.trim();
@@ -150,6 +155,7 @@ export function hydrateCustomerRecord(docId: string, data: Partial<CustomerRecor
     additionalEmails: normalizeAdditionalEmails(data.additionalEmails),
     phone: normalizePhone(data.phone ?? ""),
     additionalPhones: normalizeAdditionalPhones(data.additionalPhones),
+    mergeIgnoreKeys: normalizeMergeIgnoreKeys(data.mergeIgnoreKeys),
     source: data.source ?? "manual",
     squareCustomerId: data.squareCustomerId ?? "",
     websiteCustomerId: data.websiteCustomerId ?? "",
@@ -177,6 +183,7 @@ export function normalizeCustomerPayload(
     additionalEmails: normalizeAdditionalEmails(existing?.additionalEmails),
     phone: normalizePhone(values.phone),
     additionalPhones: normalizeAdditionalPhones(existing?.additionalPhones),
+    mergeIgnoreKeys: normalizeMergeIgnoreKeys(existing?.mergeIgnoreKeys),
     source: existing?.source ?? "manual",
     squareCustomerId: existing?.squareCustomerId ?? "",
     websiteCustomerId: existing?.websiteCustomerId ?? "",

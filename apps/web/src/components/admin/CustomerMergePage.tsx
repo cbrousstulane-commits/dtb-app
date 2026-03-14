@@ -17,6 +17,7 @@ import {
   normalizeAdditionalEmails,
   normalizeAdditionalNames,
   normalizeAdditionalPhones,
+  normalizeMergeIgnoreKeys,
 } from "@/lib/admin/customers";
 import { db } from "@/lib/firebase/client";
 
@@ -69,6 +70,13 @@ function buildGroups(customers: CustomerListItem[], type: DuplicateGroup["type"]
       label,
       customerIds: Array.from(ids),
     }))
+    .filter((group) => {
+      const participants = group.customerIds
+        .map((id) => customers.find((customer) => customer.id === id))
+        .filter(Boolean) as CustomerListItem[];
+
+      return !participants.every((customer) => customer.mergeIgnoreKeys.includes(group.key));
+    })
     .sort((a, b) => b.customerIds.length - a.customerIds.length || a.label.localeCompare(b.label));
 }
 
@@ -85,7 +93,7 @@ export default function CustomerMergePage() {
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [customers, setCustomers] = React.useState<CustomerListItem[]>([]);
   const [primaryByGroup, setPrimaryByGroup] = React.useState<Record<string, string>>({});
-  const [mergingGroupKey, setMergingGroupKey] = React.useState<string | null>(null);
+  const [processingGroupKey, setProcessingGroupKey] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -144,7 +152,7 @@ export default function CustomerMergePage() {
       return;
     }
 
-    setMergingGroupKey(group.key);
+    setProcessingGroupKey(group.key);
     setStatusMessage(null);
 
     try {
@@ -154,6 +162,7 @@ export default function CustomerMergePage() {
       let additionalNames = normalizeAdditionalNames(primary.additionalNames);
       let additionalEmails = normalizeAdditionalEmails(primary.additionalEmails);
       let additionalPhones = normalizeAdditionalPhones(primary.additionalPhones);
+      let mergeIgnoreKeys = normalizeMergeIgnoreKeys(primary.mergeIgnoreKeys).filter((key) => key !== group.key);
       let squareCustomerId = primary.squareCustomerId;
       let websiteCustomerId = primary.websiteCustomerId;
       let source = primary.source;
@@ -196,6 +205,8 @@ export default function CustomerMergePage() {
           }
         }
 
+        mergeIgnoreKeys = normalizeMergeIgnoreKeys([...mergeIgnoreKeys, ...other.mergeIgnoreKeys].filter((key) => key !== group.key));
+
         if (!squareCustomerId && other.squareCustomerId) squareCustomerId = other.squareCustomerId;
         if (!websiteCustomerId && other.websiteCustomerId) websiteCustomerId = other.websiteCustomerId;
         if (source === "manual" && other.source !== "manual") source = other.source;
@@ -219,6 +230,7 @@ export default function CustomerMergePage() {
           additionalEmails,
           phone,
           additionalPhones,
+          mergeIgnoreKeys,
           source,
           squareCustomerId,
           websiteCustomerId,
@@ -256,6 +268,7 @@ export default function CustomerMergePage() {
             additionalEmails,
             phone,
             additionalPhones,
+            mergeIgnoreKeys,
             source,
             squareCustomerId,
             websiteCustomerId,
@@ -280,7 +293,54 @@ export default function CustomerMergePage() {
     } catch (mergeError) {
       setStatusMessage(`Merge failed: ${errorMessage(mergeError)}`);
     } finally {
-      setMergingGroupKey(null);
+      setProcessingGroupKey(null);
+    }
+  }
+
+  async function ignoreGroup(group: DuplicateGroup) {
+    const groupCustomers = group.customerIds
+      .map((id) => customers.find((customer) => customer.id === id))
+      .filter(Boolean) as CustomerListItem[];
+
+    if (groupCustomers.length === 0) {
+      setStatusMessage("No customers found for that duplicate group.");
+      return;
+    }
+
+    setProcessingGroupKey(group.key);
+    setStatusMessage(null);
+
+    try {
+      const batch = writeBatch(db);
+
+      for (const customer of groupCustomers) {
+        const mergeIgnoreKeys = normalizeMergeIgnoreKeys([...customer.mergeIgnoreKeys, group.key]);
+        batch.set(
+          doc(db, ...customerDocPath(customer.id)),
+          {
+            mergeIgnoreKeys,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+
+      await batch.commit();
+      clearCustomersCache();
+
+      setCustomers((prev) => prev.map((customer) => {
+        if (!group.customerIds.includes(customer.id)) return customer;
+        return {
+          ...customer,
+          mergeIgnoreKeys: normalizeMergeIgnoreKeys([...customer.mergeIgnoreKeys, group.key]),
+        };
+      }));
+
+      setStatusMessage(`Marked ${group.label} to stay separate.`);
+    } catch (ignoreError) {
+      setStatusMessage(`Could not update duplicate group: ${errorMessage(ignoreError)}`);
+    } finally {
+      setProcessingGroupKey(null);
     }
   }
 
@@ -321,8 +381,9 @@ export default function CustomerMergePage() {
         primaryByGroup={primaryByGroup}
         setPrimaryByGroup={setPrimaryByGroup}
         onMerge={mergeGroup}
+        onIgnore={ignoreGroup}
         loading={loading}
-        mergingGroupKey={mergingGroupKey}
+        processingGroupKey={processingGroupKey}
       />
 
       <GroupSection
@@ -333,8 +394,9 @@ export default function CustomerMergePage() {
         primaryByGroup={primaryByGroup}
         setPrimaryByGroup={setPrimaryByGroup}
         onMerge={mergeGroup}
+        onIgnore={ignoreGroup}
         loading={loading}
-        mergingGroupKey={mergingGroupKey}
+        processingGroupKey={processingGroupKey}
       />
 
       <GroupSection
@@ -345,8 +407,9 @@ export default function CustomerMergePage() {
         primaryByGroup={primaryByGroup}
         setPrimaryByGroup={setPrimaryByGroup}
         onMerge={mergeGroup}
+        onIgnore={ignoreGroup}
         loading={loading}
-        mergingGroupKey={mergingGroupKey}
+        processingGroupKey={processingGroupKey}
       />
     </div>
   );
@@ -360,8 +423,9 @@ function GroupSection(props: {
   primaryByGroup: Record<string, string>;
   setPrimaryByGroup: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onMerge: (group: DuplicateGroup) => void;
+  onIgnore: (group: DuplicateGroup) => void;
   loading: boolean;
-  mergingGroupKey: string | null;
+  processingGroupKey: string | null;
 }) {
   return (
     <section className="rounded-[32px] bg-[#f8fafc] shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80">
@@ -390,7 +454,7 @@ function GroupSection(props: {
                     <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">{group.type}</div>
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                     <label className="text-sm text-slate-500">
                       <span className="mr-2">Primary</span>
                       <select
@@ -406,11 +470,20 @@ function GroupSection(props: {
 
                     <button
                       type="button"
+                      onClick={() => props.onIgnore(group)}
+                      disabled={props.processingGroupKey === group.key}
+                      className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {props.processingGroupKey === group.key ? "Working..." : "Don't Resolve"}
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => props.onMerge(group)}
-                      disabled={props.mergingGroupKey === group.key}
+                      disabled={props.processingGroupKey === group.key}
                       className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#d8a641] px-4 text-sm font-semibold text-slate-900 shadow-[0_12px_24px_rgba(216,166,65,0.26)] transition hover:bg-[#c9922a] disabled:opacity-60"
                     >
-                      {props.mergingGroupKey === group.key ? "Merging..." : "Merge Others Into Primary"}
+                      {props.processingGroupKey === group.key ? "Working..." : "Merge Into Primary"}
                     </button>
                   </div>
                 </div>

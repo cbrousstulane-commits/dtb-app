@@ -927,13 +927,23 @@ function PreviewRow(props: { row: WebsiteBookingPreviewRow; canResolve: boolean;
         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>{props.row.rowStatus}</span>
         <div className="mt-2 text-xs text-slate-500">{props.row.rowType}</div>
         {props.canResolve && props.row.rowStatus === "review" ? (
-          <button
-            type="button"
-            onClick={() => void props.onResolve(props.row)}
-            className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            Resolve
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {props.row.rowType === "fishing" ? (
+              <Link
+                href={`/admin/bookings/${props.row.externalBookingGroupId}`}
+                className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                Review
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void props.onResolve(props.row)}
+              className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              Resolve
+            </button>
+          </div>
         ) : null}
       </div>
       <div>
@@ -966,3 +976,4 @@ function PreviewRow(props: { row: WebsiteBookingPreviewRow; canResolve: boolean;
     </div>
   );
 }
+

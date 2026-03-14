@@ -149,8 +149,84 @@ function sortRows<T extends { externalBookingGroupId: string; startDate: string;
   });
 }
 
-function buildAssignedRooms(rooms: LodgeRoomOption[], roomCountRequested: number) {
-  return rooms.slice(0, Math.max(roomCountRequested, 0)).map((room) => ({ id: room.id, name: room.name }));
+function parseDateOnly(value: string) {
+  if (!value) return null;
+  const parsed = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateOnly(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function stayNights(startDate: string, endDate: string) {
+  const start = parseDateOnly(startDate);
+  const end = parseDateOnly(endDate);
+  if (!start) return [];
+
+  const next: string[] = [];
+  const cursor = new Date(start);
+  const stop = end && end.getTime() > start.getTime()
+    ? end
+    : new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+  while (cursor.getTime() < stop.getTime()) {
+    next.push(formatDateOnly(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return next;
+}
+
+function buildOccupancyMap(
+  items: StoredBookingItem[],
+  excludeBookingGroupIds: Set<string>,
+) {
+  const occupancy = new Map<string, Set<string>>();
+
+  for (const item of items) {
+    if (item.itemType !== "lodge" || item.status === "cancelled" || !item.linkedLodgeRoomId) continue;
+    if (excludeBookingGroupIds.has(item.bookingGroupId)) continue;
+
+    const nights = stayNights(item.startDateTime, item.endDateTime);
+    if (nights.length === 0) continue;
+
+    const bookedNights = occupancy.get(item.linkedLodgeRoomId) ?? new Set<string>();
+    for (const night of nights) {
+      bookedNights.add(night);
+    }
+    occupancy.set(item.linkedLodgeRoomId, bookedNights);
+  }
+
+  return occupancy;
+}
+
+function buildAssignedRooms(
+  rooms: LodgeRoomOption[],
+  roomCountRequested: number,
+  startDate: string,
+  endDate: string,
+  occupancy: Map<string, Set<string>>,
+) {
+  const requested = Math.max(roomCountRequested, 0);
+  const assignedRooms: Array<{ id: string; name: string }> = [];
+  const nights = stayNights(startDate, endDate);
+
+  for (const room of rooms) {
+    if (assignedRooms.length >= requested) break;
+
+    const bookedNights = occupancy.get(room.id) ?? new Set<string>();
+    const isAvailable = nights.every((night) => !bookedNights.has(night));
+    if (!isAvailable) continue;
+
+    for (const night of nights) {
+      bookedNights.add(night);
+    }
+    occupancy.set(room.id, bookedNights);
+    assignedRooms.push({ id: room.id, name: room.name });
+  }
+
+  return assignedRooms;
 }
 
 function customerMatchesPhone(customer: CustomerOption, phone: string) {
@@ -242,12 +318,33 @@ function matchCustomer(row: WebsiteBookingCsvRow, customers: CustomerOption[]) {
   return { customerId: "", customerMatchStatus: "review" as const, reviewReason: `No customer matched phone ${row.phone}, email ${row.email}, or name ${row.fullName}.` };
 }
 
-function buildLodgePreviewRows(rows: WebsiteBookingCsvRow[], customers: CustomerOption[], rooms: LodgeRoomOption[]) {
+function buildLodgePreviewRows(
+  rows: WebsiteBookingCsvRow[],
+  customers: CustomerOption[],
+  rooms: LodgeRoomOption[],
+  storedItems: StoredBookingItem[],
+) {
   const lodgeRows = rows.filter((row) => row.rowType === "lodge");
-  return sortRows(lodgeRows.map((row) => {
+  const sortedForAssignment = [...lodgeRows].sort((left, right) => {
+    if (left.startDate !== right.startDate) {
+      return left.startDate.localeCompare(right.startDate);
+    }
+
+    const leftId = Number(left.bookingId);
+    const rightId = Number(right.bookingId);
+    if (Number.isFinite(leftId) && Number.isFinite(rightId) && leftId !== rightId) {
+      return leftId - rightId;
+    }
+
+    return left.sourceRowNumber - right.sourceRowNumber;
+  });
+  const excludeBookingGroupIds = new Set(sortedForAssignment.map((row) => websiteBookingGroupDocId(row.bookingId)));
+  const occupancy = buildOccupancyMap(storedItems, excludeBookingGroupIds);
+
+  return sortRows(sortedForAssignment.map((row) => {
     const customer = matchCustomer(row, customers);
     const roomCountRequested = parseCount(firstRawValue(row.raw, ["How many rooms would you like to book?"])) || 1;
-    const assignedRooms = buildAssignedRooms(rooms, roomCountRequested);
+    const assignedRooms = buildAssignedRooms(rooms, roomCountRequested, row.startDate, row.endDate, occupancy);
     const guestCount = parseCount(firstRawValue(row.raw, ["How many guests are in your party?"])) || row.guestCount;
     const allInclusiveSelection = firstRawValue(row.raw, ["Would you like to make this stay all inclusive?"]);
     const allInclusiveGuestCount = parseCount(firstRawValue(row.raw, ["How many guests will participate in the all inclusive stay? - Value", "How many guests will participate in the all inclusive stay?"]));
@@ -256,7 +353,7 @@ function buildLodgePreviewRows(rows: WebsiteBookingCsvRow[], customers: Customer
     const taxAmount = parseMoney(firstRawValue(row.raw, ["Hotel Tax - 13.85% - Price"]));
     const reviewReasons = [customer.reviewReason];
     if (assignedRooms.length < roomCountRequested) {
-      reviewReasons.push(`Only ${assignedRooms.length} lodge rooms are configured, but ${roomCountRequested} rooms were requested.`);
+      reviewReasons.push(`Only ${assignedRooms.length} rooms are available across the requested nights, but ${roomCountRequested} rooms were requested.`);
     }
 
     return {
@@ -453,7 +550,7 @@ export default function LodgeBookingsOverview() {
     try {
       const text = await file.text();
       const parsedRows = parseWebsiteBookingCsv(text);
-      const nextPreview = buildLodgePreviewRows(parsedRows, customers, rooms);
+      const nextPreview = buildLodgePreviewRows(parsedRows, customers, rooms, storedBookingItems);
       setRawCsv(text);
       setPreviewRows(nextPreview);
       setStatusMessage(`Loaded ${nextPreview.length} lodge rows from ${file.name}.`);
@@ -682,7 +779,7 @@ export default function LodgeBookingsOverview() {
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Lodge</div>
             <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Lodge Bookings</div>
-            <div className="mt-3 max-w-3xl text-sm text-slate-500">Import and review Daybreak lodge bookings. Historical rooms are assigned sequentially from your configured room list, starting with room 1.</div>
+            <div className="mt-3 max-w-3xl text-sm text-slate-500">Import and review Daybreak lodge bookings. Rooms are assigned using nightly availability across the stay range, with room setup still managed under Settings.</div>
           </div>
           <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[560px] xl:max-w-[680px] xl:flex-1">
             <SummaryCard label="Raw Rows" value={String(counts.rawRows)} />
@@ -696,7 +793,7 @@ export default function LodgeBookingsOverview() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="text-lg font-semibold text-slate-900">Historical lodge import</div>
-            <div className="mt-2 text-sm text-slate-500">Uses Daybreak rows from the WordPress export. `H1` is treated as room subtotal, and `Yes, No` all-inclusive rows are preserved as mixed selections.</div>
+            <div className="mt-2 text-sm text-slate-500">Uses Daybreak rows from the WordPress export. `H1` is treated as room subtotal, `Yes, No` all-inclusive rows are preserved as mixed selections, and rooms are assigned by nightly availability.</div>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/admin/lodge-rooms" className="inline-flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">Manage Lodge Rooms</Link>
@@ -731,7 +828,7 @@ export default function LodgeBookingsOverview() {
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6 lg:px-8">
           <div>
             <div className="text-lg font-semibold text-slate-900">{previewRows.length > 0 ? "Preview" : "Imported lodge rows"}</div>
-            <div className="mt-1 text-sm text-slate-500">Historical room assignments are sequential placeholders for documentation only.</div>
+            <div className="mt-1 text-sm text-slate-500">Room assignments are based on nightly availability. Re-importing the same CSV will rebalance historical lodge stays against the current room inventory.</div>
           </div>
           <div className="inline-flex rounded-full bg-[#f2e7cf] px-3 py-1 text-xs font-semibold text-[#8b5e12]">{activeRows.length} rows</div>
         </div>

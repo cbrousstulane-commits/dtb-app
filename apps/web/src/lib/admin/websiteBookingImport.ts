@@ -37,6 +37,7 @@ export type ExistingBoatOption = BoatRecord & { id: string };
 export type ExistingTripTypeOption = TripTypeRecord & { id: string };
 
 export type WebsiteBookingPreviewRow = {
+  importRowId?: string;
   sourceRowNumber: number;
   externalBookingGroupId: string;
   rowType: BookingImportRowType;

@@ -20,6 +20,7 @@ import {
 } from "@/lib/admin/websiteBookingImport";
 import {
   BookingImportRowRecord,
+  BookingImportRowStatus,
   bookingGroupDocPath,
   bookingGroupsCollectionPath,
   bookingImportRowDocPath,
@@ -68,7 +69,7 @@ function slugifySourceCode(value: string): string {
 function summarize(rows: WebsiteBookingPreviewRow[]): PreviewCounts {
   return rows.reduce(
     (acc, row) => {
-      if (row.rowStatus === "ready") acc.ready += 1;
+      if (row.rowStatus === "ready" || row.rowStatus === "resolved") acc.ready += 1;
       else if (row.rowStatus === "review") acc.review += 1;
       else acc.skipped += 1;
       return acc;
@@ -136,6 +137,7 @@ function firstRawValue(raw: Record<string, string>, fragments: string[]): string
   }
   return "";
 }
+
 function importRowKey(row: Pick<BookingImportRowRecord, "externalBookingGroupId" | "sourceRowType">) {
   return `${row.externalBookingGroupId}::${row.sourceRowType}`;
 }
@@ -146,8 +148,7 @@ function timestampMillis(value: unknown): number {
   if (typeof maybeTimestamp.toMillis === "function") return maybeTimestamp.toMillis();
   if (typeof maybeTimestamp.seconds === "number") {
     const nanos = typeof maybeTimestamp.nanoseconds === "number" ? maybeTimestamp.nanoseconds : 0;
-  
-  return (maybeTimestamp.seconds * 1000) + Math.floor(nanos / 1_000_000);
+    return (maybeTimestamp.seconds * 1000) + Math.floor(nanos / 1_000_000);
   }
   return 0;
 }
@@ -191,6 +192,76 @@ function sortPreviewRows(rows: WebsiteBookingPreviewRow[]) {
   });
 }
 
+function isHistoricalDate(value: string): boolean {
+  return !!value && value < "2026-01-01";
+}
+
+function isDaybreakCalendar(value: string): boolean {
+  return value.trim().toLowerCase().startsWith("daybreak");
+}
+
+function isThreeSeaterCalendar(value: string): boolean {
+  return value.trim().toLowerCase().startsWith("three seater");
+}
+
+function computePersistedRowResolution(record: StoredImportRow) {
+  if (record.rowStatus === "resolved") {
+    return {
+      rowStatus: "resolved" as BookingImportRowStatus,
+      detail: record.resolutionNote || "Resolved manually in admin.",
+    };
+  }
+
+  if (record.sourceRowType !== "fishing") {
+    return {
+      rowStatus: "skipped" as BookingImportRowStatus,
+      detail: record.reviewReason || "Lodge rows are preserved for later lodge import and skipped by this fishing import.",
+    };
+  }
+
+  const unresolved: string[] = [];
+
+  if (!record.customerId) {
+    unresolved.push(record.reviewReason || "Customer still needs to be matched.");
+  }
+
+  if (!record.matchedCaptainId && !isThreeSeaterCalendar(record.sourceCalendarName) && !isDaybreakCalendar(record.sourceCalendarName)) {
+    if (!record.reviewReason.toLowerCase().includes("captain")) {
+      unresolved.push("Captain still needs to be matched.");
+    }
+  }
+
+  if (!record.matchedBoatId && !isThreeSeaterCalendar(record.sourceCalendarName) && !isHistoricalDate(record.startDate)) {
+    if (!record.reviewReason.toLowerCase().includes("boat")) {
+      unresolved.push("Boat still needs to be matched.");
+    }
+  }
+
+  if (!record.matchedTripTypeId && !isHistoricalDate(record.startDate) && record.sourceRowType === "fishing") {
+    if (!record.reviewReason.toLowerCase().includes("trip")) {
+      unresolved.push("Trip type still needs to be matched.");
+    }
+  }
+
+  if (unresolved.length > 0) {
+    return {
+      rowStatus: "review" as BookingImportRowStatus,
+      detail: unresolved.join(" "),
+    };
+  }
+
+  if (record.rowStatus === "review") {
+    return {
+      rowStatus: "resolved" as BookingImportRowStatus,
+      detail: "",
+    };
+  }
+
+  return {
+    rowStatus: record.rowStatus === "failed" ? "failed" as BookingImportRowStatus : "ready" as BookingImportRowStatus,
+    detail: record.rowStatus === "failed" ? record.reviewReason : "",
+  };
+}
 function toStoredPreviewRow(
   record: StoredImportRow,
   context: {
@@ -223,6 +294,7 @@ function toStoredPreviewRow(
   const bookingStatus = record.bookingStatus || firstRawValue(raw, ["Booking Status"]);
   const dateCreated = firstRawValue(raw, ["Date Created"]);
   const sourceTripLabel = record.sourceTripLabel || firstRawValue(raw, ["Would you like a Shelf Trip or Long Range Trip", "Would you like 10 Hour or 14 Hour charter", "Would you like a 10 hour or 14 day charter?", "Please select from the following"]);
+  const resolution = computePersistedRowResolution({ ...record, startDate, sourceCalendarName: record.sourceCalendarName || firstRawValue(raw, ["Calendar Name"]) });
 
   const rawRow: WebsiteBookingCsvRow = {
     sourceRowNumber: record.sourceRowNumber,
@@ -250,16 +322,13 @@ function toStoredPreviewRow(
     rowType: record.sourceRowType,
   };
 
-  const reviewReason = record.rowStatus === "resolved"
-    ? (record.resolutionNote || "Resolved manually in admin.")
-    : record.reviewReason;
-
   return {
+    importRowId: record.id,
     sourceRowNumber: record.sourceRowNumber,
     externalBookingGroupId: record.externalBookingGroupId,
     rowType: record.sourceRowType,
-    rowStatus: record.rowStatus,
-    reviewReason,
+    rowStatus: resolution.rowStatus,
+    reviewReason: resolution.detail,
     bookingStatus: record.bookingStatus === "cancelled" || record.bookingStatus === "modified" ? record.bookingStatus : "active",
     customerId: record.customerId,
     customerMatchStatus: record.customerMatchStatus,
@@ -370,6 +439,7 @@ export default function WebsiteBookingsOverview() {
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [processing, setProcessing] = React.useState(false);
   const [applying, setApplying] = React.useState(false);
+
   const refreshShellData = React.useCallback(async () => {
     const [importRunsSnapshot, importRows, bookingGroupsSnapshot, bookingItemsSnapshot] = await Promise.all([
       getDocs(collection(db, ...bookingImportRunsCollectionPath)),
@@ -437,7 +507,7 @@ export default function WebsiteBookingsOverview() {
     }
 
     try {
-      const importRowId = websiteBookingImportRowDocId(row.externalBookingGroupId, row.rowType);
+      const importRowId = row.importRowId || websiteBookingImportRowDocId(row.externalBookingGroupId, row.rowType);
       const groupId = websiteBookingGroupDocId(row.externalBookingGroupId);
       const itemId = websiteBookingItemDocId(row.externalBookingGroupId, "trip");
       const resolutionNote = row.reviewReason || "Resolved manually in admin.";
@@ -445,6 +515,7 @@ export default function WebsiteBookingsOverview() {
 
       batch.set(doc(db, ...bookingImportRowDocPath(importRowId)), {
         rowStatus: "resolved",
+        reviewReason: "",
         resolutionNote,
         resolvedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -452,19 +523,32 @@ export default function WebsiteBookingsOverview() {
 
       if (row.rowType === "fishing") {
         batch.set(doc(db, ...bookingGroupDocPath(groupId)), {
-          notes: "",
+          notes: resolutionNote,
           updatedAt: serverTimestamp(),
         }, { merge: true });
 
         batch.set(doc(db, ...bookingItemsCollectionPath, itemId), {
-          notes: "",
+          notes: resolutionNote,
           updatedAt: serverTimestamp(),
         }, { merge: true });
       }
 
       await batch.commit();
-      await refreshShellData();
+
+      setStoredImportRows((prev) => prev.map((stored) => (
+        stored.id === importRowId
+          ? {
+              ...stored,
+              rowStatus: "resolved",
+              reviewReason: "",
+              resolutionNote,
+              updatedAt: { toMillis: () => Date.now() },
+            }
+          : stored
+      )));
+
       setStatusMessage(`Resolved booking ${row.externalBookingGroupId}.`);
+      await refreshShellData();
     } catch (error) {
       setStatusMessage(`Failed to resolve booking ${row.externalBookingGroupId}: ${errorMessage(error)}`);
     }
@@ -477,7 +561,6 @@ export default function WebsiteBookingsOverview() {
 
   const activeRows = previewRows.length > 0 ? previewRows : persistedRows;
   const previewCounts = React.useMemo(() => summarize(activeRows), [activeRows]);
-
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -535,6 +618,7 @@ export default function WebsiteBookingsOverview() {
           deleteRefs.set(row.id, doc(db, ...bookingImportRowDocPath(row.id)));
         }
       }
+
       instructions.push({
         ref: importRunRef,
         data: {
@@ -586,6 +670,7 @@ export default function WebsiteBookingsOverview() {
             matchedTripTypeId: row.matchedTripTypeId,
             matchedTripTypeNameSnapshot: row.matchedTripTypeName,
             reviewReason: row.reviewReason,
+            resolutionNote: "",
             sourceTripLabel: row.sourceTripLabel,
             sourceGuestCount: row.rawRow.sourceGuestCount,
             startDate: row.startDate,
@@ -708,7 +793,6 @@ export default function WebsiteBookingsOverview() {
     }
   }
 
-
   return (
     <div className="space-y-6 lg:space-y-8">
       <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7">
@@ -814,7 +898,6 @@ export default function WebsiteBookingsOverview() {
 }
 
 function SummaryCard(props: { label: string; value: string }) {
-
   return (
     <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{props.label}</div>
@@ -832,6 +915,11 @@ function PreviewRow(props: { row: WebsiteBookingPreviewRow; canResolve: boolean;
         ? "bg-sky-100 text-sky-700"
         : "bg-slate-100 text-slate-700";
 
+  const detailTone = props.row.rowStatus === "resolved"
+    ? "text-sky-700"
+    : props.row.rowStatus === "review"
+      ? "text-amber-700"
+      : "text-slate-500";
 
   return (
     <div className="grid gap-3 border-b border-slate-200 px-5 py-4 transition hover:bg-slate-50 md:grid-cols-[110px_110px_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_110px_110px] md:items-start sm:px-6 lg:px-8">
@@ -874,7 +962,7 @@ function PreviewRow(props: { row: WebsiteBookingPreviewRow; canResolve: boolean;
         <div className="mt-1 text-xs text-slate-500">Deposit ${props.row.depositPaid.toFixed(2)}</div>
         <div className="mt-1 text-xs text-slate-500">Due ${props.row.remainingPaymentDue.toFixed(2)}</div>
       </div>
-      {props.row.reviewReason ? <div className="md:col-span-7 text-xs text-amber-700">{props.row.reviewReason}</div> : null}
+      {props.row.reviewReason ? <div className={`md:col-span-7 text-xs ${detailTone}`}>{props.row.reviewReason}</div> : null}
     </div>
   );
 }

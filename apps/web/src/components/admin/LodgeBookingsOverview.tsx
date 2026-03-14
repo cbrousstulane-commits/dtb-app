@@ -153,13 +153,68 @@ function buildAssignedRooms(rooms: LodgeRoomOption[], roomCountRequested: number
   return rooms.slice(0, Math.max(roomCountRequested, 0)).map((room) => ({ id: room.id, name: room.name }));
 }
 
+function customerMatchesPhone(customer: CustomerOption, phone: string) {
+  return normalizePhone(customer.phone) === phone || customer.additionalPhones.some((value) => normalizePhone(value) === phone);
+}
+
+function customerMatchesEmail(customer: CustomerOption, email: string) {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return false;
+  return customer.email === normalized || customer.additionalEmails.some((value) => value === normalized);
+}
+
+function customerLastNames(customer: CustomerOption) {
+  const values = [customer.fullName, ...customer.additionalNames]
+    .map((value) => normalizeNameKey(value).split(" ").filter(Boolean).at(-1) ?? "")
+    .filter(Boolean);
+  return new Set(values);
+}
+
+function rowLastName(row: WebsiteBookingCsvRow) {
+  return normalizeNameKey(row.lastName || row.fullName.split(" ").filter(Boolean).at(-1) || "");
+}
+
+function narrowCustomersByEmail(customers: CustomerOption[], email: string) {
+  if (!email) return customers;
+  const narrowed = customers.filter((customer) => customerMatchesEmail(customer, email));
+  return narrowed.length > 0 ? narrowed : customers;
+}
+
+function narrowCustomersByLastName(customers: CustomerOption[], lastName: string) {
+  if (!lastName) return customers;
+  const narrowed = customers.filter((customer) => customerLastNames(customer).has(lastName));
+  return narrowed.length > 0 ? narrowed : customers;
+}
+
 function matchCustomer(row: WebsiteBookingCsvRow, customers: CustomerOption[]) {
-  const byPhone = row.phone ? customers.filter((customer) => normalizePhone(customer.phone) === row.phone || customer.additionalPhones.some((phone) => normalizePhone(phone) === row.phone)) : [];
+  const lastName = rowLastName(row);
+  const byPhone = row.phone ? customers.filter((customer) => customerMatchesPhone(customer, row.phone)) : [];
   if (byPhone.length === 1) {
     return { customerId: byPhone[0].id, customerMatchStatus: "matched" as const, reviewReason: "" };
   }
   if (byPhone.length > 1) {
+    const byPhoneThenEmail = narrowCustomersByEmail(byPhone, row.email);
+    if (byPhoneThenEmail.length === 1) {
+      return { customerId: byPhoneThenEmail[0].id, customerMatchStatus: "matched" as const, reviewReason: "" };
+    }
+
+    const byPhoneThenLastName = narrowCustomersByLastName(byPhoneThenEmail, lastName);
+    if (byPhoneThenLastName.length === 1) {
+      return { customerId: byPhoneThenLastName[0].id, customerMatchStatus: "matched" as const, reviewReason: "" };
+    }
+
     return { customerId: "", customerMatchStatus: "review" as const, reviewReason: `Multiple customers match phone ${row.phone}.` };
+  }
+
+  const byEmail = row.email ? customers.filter((customer) => customerMatchesEmail(customer, row.email)) : [];
+  if (byEmail.length === 1) {
+    return { customerId: byEmail[0].id, customerMatchStatus: "matched" as const, reviewReason: "" };
+  }
+  if (byEmail.length > 1) {
+    const byEmailThenLastName = narrowCustomersByLastName(byEmail, lastName);
+    if (byEmailThenLastName.length === 1) {
+      return { customerId: byEmailThenLastName[0].id, customerMatchStatus: "matched" as const, reviewReason: "" };
+    }
   }
 
   const nameKey = normalizeNameKey(row.fullName);
@@ -168,10 +223,23 @@ function matchCustomer(row: WebsiteBookingCsvRow, customers: CustomerOption[]) {
     return { customerId: byName[0].id, customerMatchStatus: "matched" as const, reviewReason: "" };
   }
   if (byName.length > 1) {
+    const byNameThenLastName = narrowCustomersByLastName(byName, lastName);
+    if (byNameThenLastName.length === 1) {
+      return { customerId: byNameThenLastName[0].id, customerMatchStatus: "matched" as const, reviewReason: "" };
+    }
+
     return { customerId: "", customerMatchStatus: "review" as const, reviewReason: `Multiple customers match full name ${row.fullName}.` };
   }
 
-  return { customerId: "", customerMatchStatus: "review" as const, reviewReason: `No customer matched phone ${row.phone} or full name ${row.fullName}.` };
+  const byLastName = lastName ? customers.filter((customer) => customerLastNames(customer).has(lastName)) : [];
+  if (byLastName.length === 1) {
+    return { customerId: byLastName[0].id, customerMatchStatus: "matched" as const, reviewReason: "" };
+  }
+  if (byLastName.length > 1) {
+    return { customerId: "", customerMatchStatus: "review" as const, reviewReason: `Multiple customers match last name ${row.lastName || row.fullName}.` };
+  }
+
+  return { customerId: "", customerMatchStatus: "review" as const, reviewReason: `No customer matched phone ${row.phone}, email ${row.email}, or name ${row.fullName}.` };
 }
 
 function buildLodgePreviewRows(rows: WebsiteBookingCsvRow[], customers: CustomerOption[], rooms: LodgeRoomOption[]) {

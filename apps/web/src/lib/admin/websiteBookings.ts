@@ -62,6 +62,14 @@ export type BookingImportRowRecord = {
   totalAmount: number;
   depositPaid: number;
   remainingPaymentDue: number;
+  roomCountRequested: number;
+  assignedRoomCount: number;
+  allInclusiveSelection: string;
+  allInclusiveIncluded: boolean;
+  allInclusiveGuestCount: number;
+  roomSubtotal: number;
+  allInclusivePrice: number;
+  taxAmount: number;
   rawImportReference: string;
   createdAt?: unknown;
   updatedAt?: unknown;
@@ -89,6 +97,15 @@ export type BookingGroupRecord = {
   squareDepositReference: string;
   squareDepositMatchedAmount: number;
   squareDepositMatchedAt: string;
+  roomCountRequested: number;
+  assignedRoomCount: number;
+  guestCount: number;
+  allInclusiveSelection: string;
+  allInclusiveIncluded: boolean;
+  allInclusiveGuestCount: number;
+  roomSubtotal: number;
+  allInclusivePrice: number;
+  taxAmount: number;
   notes: string;
   createdAt?: unknown;
   updatedAt?: unknown;
@@ -116,6 +133,7 @@ export type BookingItemRecord = {
   linkedCaptainId: string;
   linkedCaptainNameSnapshot: string;
   linkedLodgeRoomId: string;
+  linkedLodgeRoomNameSnapshot: string;
   quantity: number;
   guestCount: number;
   activityPrice: number;
@@ -208,6 +226,14 @@ export function emptyBookingImportRow(): BookingImportRowRecord {
     totalAmount: 0,
     depositPaid: 0,
     remainingPaymentDue: 0,
+    roomCountRequested: 0,
+    assignedRoomCount: 0,
+    allInclusiveSelection: "",
+    allInclusiveIncluded: false,
+    allInclusiveGuestCount: 0,
+    roomSubtotal: 0,
+    allInclusivePrice: 0,
+    taxAmount: 0,
     rawImportReference: "",
   };
 }
@@ -235,6 +261,15 @@ export function emptyBookingGroup(): BookingGroupRecord {
     squareDepositReference: "",
     squareDepositMatchedAmount: 0,
     squareDepositMatchedAt: "",
+    roomCountRequested: 0,
+    assignedRoomCount: 0,
+    guestCount: 0,
+    allInclusiveSelection: "",
+    allInclusiveIncluded: false,
+    allInclusiveGuestCount: 0,
+    roomSubtotal: 0,
+    allInclusivePrice: 0,
+    taxAmount: 0,
     notes: "",
   };
 }
@@ -262,6 +297,7 @@ export function emptyBookingItem(): BookingItemRecord {
     linkedCaptainId: "",
     linkedCaptainNameSnapshot: "",
     linkedLodgeRoomId: "",
+    linkedLodgeRoomNameSnapshot: "",
     quantity: 1,
     guestCount: 0,
     activityPrice: 0,

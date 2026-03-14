@@ -16,7 +16,7 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: GridIcon },
   { href: "/admin/bookings", label: "Bookings", icon: TicketIcon },
   { href: "/admin/customers", label: "Customers", icon: UsersIcon },
-  { href: "/admin/lodge-rooms", label: "Rooms", icon: BedIcon },
+  { href: "/admin/lodge", label: "Lodge", icon: BedIcon },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
@@ -176,3 +176,4 @@ function MenuIcon() {
 function SvgBox(props: { children: React.ReactNode; className: string }) {
   return <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={cn("h-4.5 w-4.5", props.className)}>{props.children}</svg>;
 }
+

@@ -41,12 +41,25 @@ export type BookingImportRowRecord = {
   bookingStatus: string;
   customerId: string;
   customerMatchStatus: CustomerMatchStatus;
+  customerNameSnapshot: string;
+  customerPhoneSnapshot: string;
+  customerEmailSnapshot: string;
   matchedCaptainId: string;
+  matchedCaptainNameSnapshot: string;
   matchedBoatId: string;
+  matchedBoatNameSnapshot: string;
   matchedTripTypeId: string;
+  matchedTripTypeNameSnapshot: string;
   reviewReason: string;
   sourceTripLabel: string;
   sourceGuestCount: string;
+  startDate: string;
+  endDate: string;
+  guestCount: number;
+  termsAccepted: boolean;
+  totalAmount: number;
+  depositPaid: number;
+  remainingPaymentDue: number;
   rawImportReference: string;
   createdAt?: unknown;
   updatedAt?: unknown;
@@ -130,6 +143,10 @@ export function bookingItemDocPath(bookingItemId: string) {
   return [...bookingItemsCollectionPath, bookingItemId] as const;
 }
 
+export function websiteBookingImportRowDocId(externalBookingGroupId: string, rowType: BookingImportRowType) {
+  return `website-import-row-${externalBookingGroupId}-${rowType}`;
+}
+
 export function websiteBookingGroupDocId(externalBookingGroupId: string) {
   return `website-booking-${externalBookingGroupId}`;
 }
@@ -169,12 +186,25 @@ export function emptyBookingImportRow(): BookingImportRowRecord {
     bookingStatus: "",
     customerId: "",
     customerMatchStatus: "unresolved",
+    customerNameSnapshot: "",
+    customerPhoneSnapshot: "",
+    customerEmailSnapshot: "",
     matchedCaptainId: "",
+    matchedCaptainNameSnapshot: "",
     matchedBoatId: "",
+    matchedBoatNameSnapshot: "",
     matchedTripTypeId: "",
+    matchedTripTypeNameSnapshot: "",
     reviewReason: "",
     sourceTripLabel: "",
     sourceGuestCount: "",
+    startDate: "",
+    endDate: "",
+    guestCount: 0,
+    termsAccepted: false,
+    totalAmount: 0,
+    depositPaid: 0,
+    remainingPaymentDue: 0,
     rawImportReference: "",
   };
 }

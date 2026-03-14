@@ -6,7 +6,7 @@ import { collection, doc, getDocs, serverTimestamp, writeBatch } from "firebase/
 
 import { BoatRecord, boatsCollectionPath } from "@/lib/admin/boats";
 import { CaptainRecord, captainsCollectionPath } from "@/lib/admin/captains";
-import { CustomerRecord, customersCollectionPath, hydrateCustomerRecord } from "@/lib/admin/customers";
+import { CustomerRecord, customersCollectionPath, hydrateCustomerRecord, normalizePhone } from "@/lib/admin/customers";
 import { TripTypeRecord, tripTypesCollectionPath } from "@/lib/admin/tripTypes";
 import {
   buildWebsiteBookingPreviewRows,
@@ -15,11 +15,14 @@ import {
   ExistingCustomerOption,
   ExistingTripTypeOption,
   parseWebsiteBookingCsv,
+  WebsiteBookingCsvRow,
   WebsiteBookingPreviewRow,
 } from "@/lib/admin/websiteBookingImport";
 import {
+  BookingImportRowRecord,
   bookingGroupDocPath,
   bookingGroupsCollectionPath,
+  bookingImportRowDocPath,
   bookingImportRowsCollectionPath,
   bookingImportRunsCollectionPath,
   bookingItemsCollectionPath,
@@ -28,6 +31,7 @@ import {
   emptyBookingImportRun,
   emptyBookingItem,
   websiteBookingGroupDocId,
+  websiteBookingImportRowDocId,
   websiteBookingItemDocId,
 } from "@/lib/admin/websiteBookings";
 import { db } from "@/lib/firebase/client";
@@ -44,6 +48,8 @@ type PreviewCounts = {
   review: number;
   skipped: number;
 };
+
+type StoredImportRow = BookingImportRowRecord & { id: string };
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -79,19 +85,198 @@ async function sha256(text: string) {
     .join("");
 }
 
-async function loadCounts(): Promise<Counts> {
-  const [importRuns, importRows, bookingGroups, bookingItems] = await Promise.all([
-    getDocs(collection(db, ...bookingImportRunsCollectionPath)),
-    getDocs(collection(db, ...bookingImportRowsCollectionPath)),
-    getDocs(collection(db, ...bookingGroupsCollectionPath)),
-    getDocs(collection(db, ...bookingItemsCollectionPath)),
-  ]);
+function normalizeHeader(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
 
+function headerIncludes(header: string, fragment: string): boolean {
+  return normalizeHeader(header).includes(normalizeHeader(fragment));
+}
+
+function cleanCell(value: string): string {
+  const trimmed = value.trim();
+  return trimmed === "-" ? "" : trimmed;
+}
+
+function parseMoney(value: string): number {
+  const cleaned = cleanCell(value).replace(/[$,]/g, "");
+  if (!cleaned) return 0;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseCount(value: string): number {
+  const cleaned = cleanCell(value);
+  if (!cleaned) return 0;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseRawImportReference(value: string): Record<string, string> {
+  if (!value) return {};
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).map(([key, rawValue]) => [key, typeof rawValue === "string" ? rawValue : String(rawValue ?? "")]),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function firstRawValue(raw: Record<string, string>, fragments: string[]): string {
+  for (const fragment of fragments) {
+    const match = Object.entries(raw).find(([header]) => headerIncludes(header, fragment));
+    if (match) return cleanCell(match[1]);
+  }
+  return "";
+}
+function importRowKey(row: Pick<BookingImportRowRecord, "externalBookingGroupId" | "sourceRowType">) {
+  return `${row.externalBookingGroupId}::${row.sourceRowType}`;
+}
+
+function timestampMillis(value: unknown): number {
+  if (!value || typeof value !== "object") return 0;
+  const maybeTimestamp = value as { seconds?: number; nanoseconds?: number; toMillis?: () => number };
+  if (typeof maybeTimestamp.toMillis === "function") return maybeTimestamp.toMillis();
+  if (typeof maybeTimestamp.seconds === "number") {
+    const nanos = typeof maybeTimestamp.nanoseconds === "number" ? maybeTimestamp.nanoseconds : 0;
+    return (maybeTimestamp.seconds * 1000) + Math.floor(nanos / 1_000_000);
+  }
+  return 0;
+}
+
+function dedupeImportRows(rows: StoredImportRow[]) {
+  const byKey = new Map<string, StoredImportRow>();
+
+  for (const row of rows) {
+    const key = importRowKey(row);
+    const current = byKey.get(key);
+    if (!current) {
+      byKey.set(key, row);
+      continue;
+    }
+
+    const currentTime = Math.max(timestampMillis(current.updatedAt), timestampMillis(current.createdAt));
+    const nextTime = Math.max(timestampMillis(row.updatedAt), timestampMillis(row.createdAt));
+
+    if (nextTime >= currentTime) {
+      byKey.set(key, row);
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
+function sortPreviewRows(rows: WebsiteBookingPreviewRow[]) {
+  return [...rows].sort((left, right) => {
+    const rightId = Number(right.externalBookingGroupId);
+    const leftId = Number(left.externalBookingGroupId);
+
+    if (Number.isFinite(leftId) && Number.isFinite(rightId) && leftId !== rightId) {
+      return rightId - leftId;
+    }
+
+    if (left.startDate !== right.startDate) {
+      return right.startDate.localeCompare(left.startDate);
+    }
+
+    return right.sourceRowNumber - left.sourceRowNumber;
+  });
+}
+
+function toStoredPreviewRow(
+  record: StoredImportRow,
+  context: {
+    customers: ExistingCustomerOption[];
+    captains: ExistingCaptainOption[];
+    boats: ExistingBoatOption[];
+    tripTypes: ExistingTripTypeOption[];
+  },
+): WebsiteBookingPreviewRow {
+  const raw = parseRawImportReference(record.rawImportReference);
+  const matchedCustomer = record.customerId ? context.customers.find((customer) => customer.id === record.customerId) : undefined;
+  const matchedCaptain = record.matchedCaptainId ? context.captains.find((captain) => captain.id === record.matchedCaptainId) : undefined;
+  const matchedBoat = record.matchedBoatId ? context.boats.find((boat) => boat.id === record.matchedBoatId) : undefined;
+  const matchedTripType = record.matchedTripTypeId ? context.tripTypes.find((tripType) => tripType.id === record.matchedTripTypeId) : undefined;
+
+  const fallbackFirstName = firstRawValue(raw, ["First Name"]);
+  const fallbackLastName = firstRawValue(raw, ["Last Name", "Last name"]);
+  const fallbackFullName = [fallbackFirstName, fallbackLastName].filter(Boolean).join(" ").trim();
+  const customerNameSnapshot = record.customerNameSnapshot || fallbackFullName || matchedCustomer?.fullName || "";
+  const customerPhoneSnapshot = record.customerPhoneSnapshot || normalizePhone(firstRawValue(raw, ["Phone Number"])) || matchedCustomer?.phone || "";
+  const customerEmailSnapshot = record.customerEmailSnapshot || firstRawValue(raw, ["Email"]).toLowerCase() || matchedCustomer?.email || "";
+  const startDate = record.startDate || firstRawValue(raw, ["Start Date"]);
+  const endDate = record.endDate || firstRawValue(raw, ["End Date"]);
+  const guestSource = record.sourceGuestCount || firstRawValue(raw, ["Please select the number of people coming aboard", "How many guests are in your party?"]);
+  const guestCount = typeof record.guestCount === "number" && record.guestCount > 0 ? record.guestCount : parseCount(guestSource);
+  const termsAccepted = record.termsAccepted === true || firstRawValue(raw, ["Terms and Conditions"]).length > 0;
+  const totalAmount = typeof record.totalAmount === "number" && record.totalAmount > 0 ? record.totalAmount : parseMoney(firstRawValue(raw, ["Total Amount"]));
+  const depositPaid = typeof record.depositPaid === "number" && record.depositPaid > 0 ? record.depositPaid : parseMoney(firstRawValue(raw, ["Deposit - Price"]));
+  const remainingPaymentDue = typeof record.remainingPaymentDue === "number" && record.remainingPaymentDue > 0 ? record.remainingPaymentDue : parseMoney(firstRawValue(raw, ["Final Payment - Price"]));
+  const bookingStatus = record.bookingStatus || firstRawValue(raw, ["Booking Status"]);
+  const dateCreated = firstRawValue(raw, ["Date Created"]);
+  const sourceTripLabel = record.sourceTripLabel || firstRawValue(raw, ["Would you like a Shelf Trip or Long Range Trip", "Would you like 10 Hour or 14 Hour charter", "Would you like a 10 hour or 14 day charter?", "Please select from the following"]);
+
+  const rawRow: WebsiteBookingCsvRow = {
+    sourceRowNumber: record.sourceRowNumber,
+    raw,
+    bookingId: record.externalBookingGroupId,
+    bookingStatus,
+    calendarId: record.sourceCalendarId,
+    calendarName: record.sourceCalendarName,
+    startDate,
+    endDate,
+    dateCreated,
+    firstName: fallbackFirstName,
+    lastName: fallbackLastName,
+    fullName: customerNameSnapshot,
+    phone: customerPhoneSnapshot,
+    email: customerEmailSnapshot,
+    termsAccepted,
+    totalAmount,
+    depositPaid,
+    remainingPaymentDue,
+    guestCount,
+    sourceGuestCount: guestSource,
+    tripLabel: sourceTripLabel,
+    tripOptions: sourceTripLabel ? [sourceTripLabel] : [],
+    rowType: record.sourceRowType,
+  };
   return {
-    importRuns: importRuns.size,
-    importRows: importRows.size,
-    bookingGroups: bookingGroups.size,
-    bookingItems: bookingItems.size,
+    sourceRowNumber: record.sourceRowNumber,
+    externalBookingGroupId: record.externalBookingGroupId,
+    rowType: record.sourceRowType,
+    rowStatus: record.rowStatus,
+    reviewReason: record.reviewReason,
+    bookingStatus: record.bookingStatus === "cancelled" || record.bookingStatus === "modified" ? record.bookingStatus : "active",
+    customerId: record.customerId,
+    customerMatchStatus: record.customerMatchStatus,
+    customerNameSnapshot,
+    customerPhoneSnapshot,
+    customerEmailSnapshot,
+    matchedCaptainId: record.matchedCaptainId,
+    matchedCaptainName: record.matchedCaptainNameSnapshot || matchedCaptain?.name || "",
+    matchedBoatId: record.matchedBoatId,
+    matchedBoatName: record.matchedBoatNameSnapshot || matchedBoat?.name || "",
+    matchedTripTypeId: record.matchedTripTypeId,
+    matchedTripTypeName: record.matchedTripTypeNameSnapshot || matchedTripType?.name || "",
+    sourceCalendarId: record.sourceCalendarId,
+    sourceCalendarName: record.sourceCalendarName,
+    sourceTripLabel,
+    startDate,
+    endDate,
+    guestCount,
+    termsAccepted,
+    totalAmount,
+    depositPaid,
+    remainingPaymentDue,
+    rawRow,
   };
 }
 
@@ -155,6 +340,14 @@ async function loadTripTypes(): Promise<ExistingTripTypeOption[]> {
   });
 }
 
+async function loadStoredImportRows() {
+  const snapshot = await getDocs(collection(db, ...bookingImportRowsCollectionPath));
+  return snapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...(docSnap.data() as BookingImportRowRecord),
+  })) satisfies StoredImportRow[];
+}
+
 export default function WebsiteBookingsOverview() {
   const [counts, setCounts] = React.useState<Counts>({ importRuns: 0, importRows: 0, bookingGroups: 0, bookingItems: 0 });
   const [loadingShell, setLoadingShell] = React.useState(true);
@@ -164,20 +357,37 @@ export default function WebsiteBookingsOverview() {
   const [captains, setCaptains] = React.useState<ExistingCaptainOption[]>([]);
   const [boats, setBoats] = React.useState<ExistingBoatOption[]>([]);
   const [tripTypes, setTripTypes] = React.useState<ExistingTripTypeOption[]>([]);
+  const [storedImportRows, setStoredImportRows] = React.useState<StoredImportRow[]>([]);
   const [selectedFileName, setSelectedFileName] = React.useState("");
   const [rawCsv, setRawCsv] = React.useState("");
   const [previewRows, setPreviewRows] = React.useState<WebsiteBookingPreviewRow[]>([]);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [processing, setProcessing] = React.useState(false);
   const [applying, setApplying] = React.useState(false);
+  const refreshShellData = React.useCallback(async () => {
+    const [importRunsSnapshot, importRows, bookingGroupsSnapshot, bookingItemsSnapshot] = await Promise.all([
+      getDocs(collection(db, ...bookingImportRunsCollectionPath)),
+      loadStoredImportRows(),
+      getDocs(collection(db, ...bookingGroupsCollectionPath)),
+      getDocs(collection(db, ...bookingItemsCollectionPath)),
+    ]);
+
+    const dedupedImportRows = dedupeImportRows(importRows);
+    setStoredImportRows(dedupedImportRows);
+    setCounts({
+      importRuns: importRunsSnapshot.size,
+      importRows: dedupedImportRows.length,
+      bookingGroups: bookingGroupsSnapshot.size,
+      bookingItems: bookingItemsSnapshot.size,
+    });
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const [nextCounts, nextCustomers, nextCaptains, nextBoats, nextTripTypes] = await Promise.all([
-          loadCounts(),
+        const [nextCustomers, nextCaptains, nextBoats, nextTripTypes] = await Promise.all([
           loadCustomers(),
           loadCaptains(),
           loadBoats(),
@@ -186,12 +396,16 @@ export default function WebsiteBookingsOverview() {
 
         if (cancelled) return;
 
-        setCounts(nextCounts);
         setCustomers(nextCustomers);
         setCaptains(nextCaptains);
         setBoats(nextBoats);
         setTripTypes(nextTripTypes);
-        setShellError(null);
+
+        await refreshShellData();
+
+        if (!cancelled) {
+          setShellError(null);
+        }
       } catch (error) {
         if (!cancelled) {
           setShellError(errorMessage(error));
@@ -209,13 +423,15 @@ export default function WebsiteBookingsOverview() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshShellData]);
 
-  const previewCounts = React.useMemo(() => summarize(previewRows), [previewRows]);
+  const persistedRows = React.useMemo(
+    () => sortPreviewRows(storedImportRows.map((row) => toStoredPreviewRow(row, { customers, captains, boats, tripTypes }))),
+    [boats, captains, customers, storedImportRows, tripTypes],
+  );
 
-  async function refreshShellCounts() {
-    setCounts(await loadCounts());
-  }
+  const activeRows = previewRows.length > 0 ? previewRows : persistedRows;
+  const previewCounts = React.useMemo(() => summarize(activeRows), [activeRows]);
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -228,12 +444,12 @@ export default function WebsiteBookingsOverview() {
     try {
       const text = await file.text();
       const parsedRows = parseWebsiteBookingCsv(text);
-      const nextPreviewRows = buildWebsiteBookingPreviewRows(parsedRows, {
+      const nextPreviewRows = sortPreviewRows(buildWebsiteBookingPreviewRows(parsedRows, {
         customers,
         captains,
         boats,
         tripTypes,
-      });
+      }));
       setRawCsv(text);
       setPreviewRows(nextPreviewRows);
       setStatusMessage(`Loaded ${nextPreviewRows.length} website booking rows. Fishing rows are importable now; Daybreak lodge rows are preserved and skipped.`);
@@ -260,8 +476,20 @@ export default function WebsiteBookingsOverview() {
       const checksum = await sha256(rawCsv);
       const importRunRef = doc(collection(db, ...bookingImportRunsCollectionPath));
       const instructions: Array<{ ref: ReturnType<typeof doc>; data: Record<string, unknown>; merge?: boolean }> = [];
+      const deleteRefs = new Map<string, ReturnType<typeof doc>>();
       const importableRows = previewRows.filter((row) => row.rowType === "fishing");
+      const previewSummary = summarize(previewRows);
+      const existingImportRows = await loadStoredImportRows();
+      const previewKeys = new Set(previewRows.map((row) => importRowKey({ externalBookingGroupId: row.externalBookingGroupId, sourceRowType: row.rowType })));
 
+      for (const row of existingImportRows) {
+        const key = importRowKey(row);
+        if (!previewKeys.has(key)) continue;
+        const stableId = websiteBookingImportRowDocId(row.externalBookingGroupId, row.sourceRowType);
+        if (row.id !== stableId) {
+          deleteRefs.set(row.id, doc(db, ...bookingImportRowDocPath(row.id)));
+        }
+      }
       instructions.push({
         ref: importRunRef,
         data: {
@@ -273,9 +501,9 @@ export default function WebsiteBookingsOverview() {
           bookingRowCount: importableRows.length,
           bookingGroupCount: importableRows.length,
           bookingItemCount: importableRows.length,
-          readyCount: previewCounts.ready,
-          reviewCount: previewCounts.review,
-          skippedCount: previewCounts.skipped,
+          readyCount: previewSummary.ready,
+          reviewCount: previewSummary.review,
+          skippedCount: previewSummary.skipped,
           failedCount: 0,
           notes: "Historical fishing-booking import from admin bookings area.",
           startedAt: serverTimestamp(),
@@ -286,8 +514,10 @@ export default function WebsiteBookingsOverview() {
       });
 
       for (const row of previewRows) {
+        const importRowId = websiteBookingImportRowDocId(row.externalBookingGroupId, row.rowType);
+
         instructions.push({
-          ref: doc(collection(db, ...bookingImportRowsCollectionPath)),
+          ref: doc(db, ...bookingImportRowDocPath(importRowId)),
           data: {
             ...emptyBookingImportRow(),
             source: "website-csv",
@@ -301,16 +531,30 @@ export default function WebsiteBookingsOverview() {
             bookingStatus: row.rawRow.bookingStatus,
             customerId: row.customerId,
             customerMatchStatus: row.customerMatchStatus,
+            customerNameSnapshot: row.customerNameSnapshot,
+            customerPhoneSnapshot: row.customerPhoneSnapshot,
+            customerEmailSnapshot: row.customerEmailSnapshot,
             matchedCaptainId: row.matchedCaptainId,
+            matchedCaptainNameSnapshot: row.matchedCaptainName,
             matchedBoatId: row.matchedBoatId,
+            matchedBoatNameSnapshot: row.matchedBoatName,
             matchedTripTypeId: row.matchedTripTypeId,
+            matchedTripTypeNameSnapshot: row.matchedTripTypeName,
             reviewReason: row.reviewReason,
             sourceTripLabel: row.sourceTripLabel,
             sourceGuestCount: row.rawRow.sourceGuestCount,
+            startDate: row.startDate,
+            endDate: row.endDate,
+            guestCount: row.guestCount,
+            termsAccepted: row.termsAccepted,
+            totalAmount: row.totalAmount,
+            depositPaid: row.depositPaid,
+            remainingPaymentDue: row.remainingPaymentDue,
             rawImportReference: JSON.stringify(row.rawRow.raw),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           },
+          merge: true,
         });
 
         if (row.rowType !== "fishing") {
@@ -401,8 +645,17 @@ export default function WebsiteBookingsOverview() {
         await batch.commit();
       }
 
-      await refreshShellCounts();
-      setStatusMessage(`Imported ${importableRows.length} fishing bookings. Review rows: ${previewCounts.review}. Skipped lodge rows: ${previewCounts.skipped}.`);
+      const deleteRefsList = Array.from(deleteRefs.values());
+      for (let index = 0; index < deleteRefsList.length; index += 450) {
+        const batch = writeBatch(db);
+        for (const ref of deleteRefsList.slice(index, index + 450)) {
+          batch.delete(ref);
+        }
+        await batch.commit();
+      }
+
+      await refreshShellData();
+      setStatusMessage(`Imported ${importableRows.length} fishing bookings. Review rows: ${previewSummary.review}. Skipped lodge rows: ${previewSummary.skipped}.`);
     } catch (error) {
       setStatusMessage(`Import failed: ${errorMessage(error)}`);
     } finally {
@@ -430,7 +683,6 @@ export default function WebsiteBookingsOverview() {
           </div>
         </div>
       </section>
-
       <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7 space-y-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -457,7 +709,9 @@ export default function WebsiteBookingsOverview() {
             ? "Loading existing customers, captains, boats, and trip types..."
             : selectedFileName
               ? `Selected file: ${selectedFileName}`
-              : "Choose a WordPress booking export CSV to preview the historical fishing import."}
+              : counts.importRows > 0
+                ? "Showing imported booking rows below. Choose a CSV to preview a fresh re-import."
+                : "Choose a WordPress booking export CSV to preview the historical fishing import."}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
@@ -479,12 +733,14 @@ export default function WebsiteBookingsOverview() {
       <section className="rounded-[32px] bg-[#f8fafc] shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6 lg:px-8">
           <div>
-            <div className="text-lg font-semibold text-slate-900">Preview</div>
+            <div className="text-lg font-semibold text-slate-900">{previewRows.length > 0 ? "Preview" : "Imported rows"}</div>
             <div className="mt-1 text-sm text-slate-500">
-              Ready and review rows will import as historical fishing bookings. Daybreak lodge rows are preserved in raw import rows and skipped from booking creation for now.
+              {previewRows.length > 0
+                ? "Ready and review rows will import as historical fishing bookings. Daybreak lodge rows are preserved in raw import rows and skipped from booking creation for now."
+                : "These rows reflect the latest stored import state. Load a CSV if you want to preview a fresh re-import before applying it."}
             </div>
           </div>
-          <div className="inline-flex rounded-full bg-[#f2e7cf] px-3 py-1 text-xs font-semibold text-[#8b5e12]">{previewRows.length} rows</div>
+          <div className="inline-flex rounded-full bg-[#f2e7cf] px-3 py-1 text-xs font-semibold text-[#8b5e12]">{activeRows.length} rows</div>
         </div>
 
         <div className="hidden grid-cols-[110px_110px_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_110px_110px] gap-4 border-b border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 md:grid sm:px-6 lg:px-8">
@@ -498,14 +754,14 @@ export default function WebsiteBookingsOverview() {
         </div>
 
         <div>
-          {previewRows.length === 0 ? (
-            <div className="px-5 py-6 text-sm text-slate-500 sm:px-6 lg:px-8">No preview rows yet.</div>
+          {activeRows.length === 0 ? (
+            <div className="px-5 py-6 text-sm text-slate-500 sm:px-6 lg:px-8">No imported or preview rows yet.</div>
           ) : (
-            previewRows.slice(0, 80).map((row) => <PreviewRow key={`${row.externalBookingGroupId}-${row.sourceRowNumber}`} row={row} />)
+            activeRows.slice(0, 80).map((row) => <PreviewRow key={`${row.externalBookingGroupId}-${row.rowType}-${row.sourceRowNumber}`} row={row} />)
           )}
         </div>
 
-        {previewRows.length > 80 ? <div className="border-t border-slate-200 px-5 py-4 text-xs text-slate-500 sm:px-6 lg:px-8">Showing first 80 rows of {previewRows.length}.</div> : null}
+        {activeRows.length > 80 ? <div className="border-t border-slate-200 px-5 py-4 text-xs text-slate-500 sm:px-6 lg:px-8">Showing first 80 rows of {activeRows.length}.</div> : null}
       </section>
     </div>
   );

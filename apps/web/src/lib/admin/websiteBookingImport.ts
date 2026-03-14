@@ -221,7 +221,7 @@ function matchBoat(calendarName: string, startDate: string, boats: ExistingBoatO
   }
 
   if (isHistorical(startDate)) {
-    return { boatId: "", boatName: "", reviewReason: "Historical pre-2026 booking; boat intentionally left unlinked." };
+    return { boatId: "", boatName: "", reviewReason: "" };
   }
 
   const matches = boats.filter((boat) => normalizeKey(trimmed).includes(normalizeKey(boat.name)) || normalizeKey(boat.name).includes(normalizeKey(trimmed)));
@@ -236,7 +236,7 @@ function matchBoat(calendarName: string, startDate: string, boats: ExistingBoatO
   return { boatId: "", boatName: "", reviewReason: startDate >= "2026-01-01" ? "Future booking has no boat match yet." : "" };
 }
 
-function matchTripType(tripOptions: string[], tripTypes: ExistingTripTypeOption[]) {
+function matchTripType(tripOptions: string[], tripTypes: ExistingTripTypeOption[], startDate: string) {
   if (tripOptions.length === 0) {
     return { tripTypeId: "", tripTypeName: "", sourceTripLabel: "", reviewReason: "" };
   }
@@ -245,12 +245,14 @@ function matchTripType(tripOptions: string[], tripTypes: ExistingTripTypeOption[
   const aliases = tripOptions.flatMap((value) => {
     const key = normalizeKey(value);
     const next = [key];
+
     if (key.includes("long range")) next.push("long range");
     if (key.includes("shelf")) next.push("shelf");
-    if (key.includes("14 hour")) next.push("14 hour");
-    if (key.includes("10 hour")) next.push("10 hour");
+    if (key.includes("14 hour")) next.push("14 hour", "long range");
+    if (key.includes("10 hour")) next.push("10 hour", "shelf");
     if (key.includes("36 hour")) next.push("36 hour");
     if (key.includes("overnight")) next.push("overnight");
+
     return next;
   });
 
@@ -267,7 +269,12 @@ function matchTripType(tripOptions: string[], tripTypes: ExistingTripTypeOption[
     return { tripTypeId: "", tripTypeName: "", sourceTripLabel, reviewReason: `Multiple trip types match ${sourceTripLabel}.` };
   }
 
-  return { tripTypeId: "", tripTypeName: "", sourceTripLabel, reviewReason: `No current trip type matches historical label ${sourceTripLabel}.` };
+  return {
+    tripTypeId: "",
+    tripTypeName: "",
+    sourceTripLabel,
+    reviewReason: isHistorical(startDate) ? "" : `No current trip type matches historical label ${sourceTripLabel}.`,
+  };
 }
 
 function matchCustomer(row: WebsiteBookingCsvRow, customers: ExistingCustomerOption[]) {
@@ -282,7 +289,7 @@ function matchCustomer(row: WebsiteBookingCsvRow, customers: ExistingCustomerOpt
   const fullNameKey = normalizeName(row.fullName);
   const byName = fullNameKey ? customers.filter((customer) => normalizeName(customer.fullName) === fullNameKey || customer.additionalNames.some((name) => normalizeName(name) === fullNameKey)) : [];
   if (byName.length === 1) {
-    return { customerId: byName[0].id, matchStatus: "matched" as const, reviewReason: "Matched by name fallback because phone did not match." };
+    return { customerId: byName[0].id, matchStatus: "matched" as const, reviewReason: "" };
   }
   if (byName.length > 1) {
     return { customerId: "", matchStatus: "review" as const, reviewReason: `Multiple customers match full name ${row.fullName}.` };
@@ -430,7 +437,7 @@ export function buildWebsiteBookingPreviewRows(
     const customer = matchCustomer(row, context.customers);
     const captain = matchCaptain(row.calendarName, context.captains);
     const boat = matchBoat(row.calendarName, row.startDate, context.boats);
-    const tripType = matchTripType(row.tripOptions, context.tripTypes);
+    const tripType = matchTripType(row.tripOptions, context.tripTypes, row.startDate);
 
     const reasons = [customer.reviewReason, captain.reviewReason, boat.reviewReason, tripType.reviewReason].filter(Boolean);
     const rowStatus: BookingImportRowStatus = customer.matchStatus === "review" || reasons.length > 0 ? "review" : "ready";

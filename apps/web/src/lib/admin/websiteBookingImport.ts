@@ -166,12 +166,29 @@ function matchCaptain(calendarName: string, captains: ExistingCaptainOption[]) {
   }
 
   if (trimmed.toLowerCase().startsWith("three seater")) {
-    return { captainId: "", captainName: "", reviewReason: "Three Seater calendar is mapped without a captain link." };
+    return { captainId: "", captainName: "", reviewReason: "" };
   }
 
   const alias = trimmed.split(" - ")[0]?.trim() ?? "";
   if (!alias) {
     return { captainId: "", captainName: "", reviewReason: "Calendar name does not contain a captain alias." };
+  }
+
+  const captainPrefix = alias.match(/^captain\s+([a-z]+)/i);
+  if (captainPrefix?.[1]) {
+    const firstNameKey = normalizeKey(captainPrefix[1]);
+    const firstNameMatches = captains.filter((captain) => {
+      const captainFirstName = captain.name.split(" ").find(Boolean) ?? "";
+      return normalizeKey(captainFirstName) === firstNameKey;
+    });
+
+    if (firstNameMatches.length === 1) {
+      return { captainId: firstNameMatches[0].id, captainName: firstNameMatches[0].name, reviewReason: "" };
+    }
+
+    if (firstNameMatches.length > 1) {
+      return { captainId: "", captainName: "", reviewReason: `Multiple captains match first name ${captainPrefix[1]}.` };
+    }
   }
 
   const exact = captains.filter((captain) => normalizeKey(captain.name) === normalizeKey(alias));

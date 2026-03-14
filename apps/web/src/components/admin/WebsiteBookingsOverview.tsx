@@ -39,9 +39,9 @@ import { db } from "@/lib/firebase/client";
 
 type Counts = {
   importRuns: number;
-  importRows: number;
-  bookingGroups: number;
-  bookingItems: number;
+  fishingRows: number;
+  fishingGroups: number;
+  fishingItems: number;
 };
 
 type PreviewCounts = {
@@ -424,7 +424,7 @@ async function loadStoredImportRows() {
 }
 
 export default function WebsiteBookingsOverview() {
-  const [counts, setCounts] = React.useState<Counts>({ importRuns: 0, importRows: 0, bookingGroups: 0, bookingItems: 0 });
+  const [counts, setCounts] = React.useState<Counts>({ importRuns: 0, fishingRows: 0, fishingGroups: 0, fishingItems: 0 });
   const [loadingShell, setLoadingShell] = React.useState(true);
   const [shellError, setShellError] = React.useState<string | null>(null);
   const [loadingContext, setLoadingContext] = React.useState(true);
@@ -450,11 +450,13 @@ export default function WebsiteBookingsOverview() {
 
     const dedupedImportRows = dedupeImportRows(importRows);
     setStoredImportRows(dedupedImportRows);
+    const fishingRows = dedupedImportRows.filter((row) => row.sourceRowType === "fishing");
+    const fishingItems = bookingItemsSnapshot.docs.filter((docSnap) => (docSnap.data() as { itemType?: string }).itemType === "trip");
     setCounts({
       importRuns: importRunsSnapshot.size,
-      importRows: dedupedImportRows.length,
-      bookingGroups: bookingGroupsSnapshot.size,
-      bookingItems: bookingItemsSnapshot.size,
+      fishingRows: fishingRows.length,
+      fishingGroups: fishingRows.length,
+      fishingItems: fishingItems.length,
     });
   }, []);
 
@@ -559,7 +561,7 @@ export default function WebsiteBookingsOverview() {
     [boats, captains, customers, storedImportRows, tripTypes],
   );
 
-  const activeRows = previewRows.length > 0 ? previewRows : persistedRows;
+  const activeRows = React.useMemo(() => (previewRows.length > 0 ? previewRows.filter((row) => row.rowType === "fishing") : persistedRows), [persistedRows, previewRows]);
   const previewCounts = React.useMemo(() => summarize(activeRows), [activeRows]);
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -580,7 +582,8 @@ export default function WebsiteBookingsOverview() {
       }));
       setRawCsv(text);
       setPreviewRows(nextPreviewRows);
-      setStatusMessage(`Loaded ${nextPreviewRows.length} website booking rows. Fishing rows are importable now; Daybreak lodge rows are preserved and skipped.`);
+      const fishingCount = nextPreviewRows.filter((row) => row.rowType === "fishing").length;
+      setStatusMessage(`Loaded ${fishingCount} fishing-trip rows from the CSV. Lodge rows stay in the lodge workspace.`);
     } catch (error) {
       setRawCsv("");
       setPreviewRows([]);
@@ -626,7 +629,7 @@ export default function WebsiteBookingsOverview() {
           sourceFileName: selectedFileName,
           sourceFileChecksum: checksum,
           status: "completed",
-          rowCount: previewRows.length,
+          rowCount: importableRows.length,
           bookingRowCount: importableRows.length,
           bookingGroupCount: importableRows.length,
           bookingItemCount: importableRows.length,
@@ -785,7 +788,7 @@ export default function WebsiteBookingsOverview() {
       }
 
       await refreshShellData();
-      setStatusMessage(`Imported ${importableRows.length} fishing bookings. Review rows: ${previewSummary.review}. Skipped lodge rows: ${previewSummary.skipped}.`);
+      setStatusMessage(`Imported ${importableRows.length} fishing trips. Review rows: ${previewSummary.review}. Lodge rows remain under Lodge.`);
     } catch (error) {
       setStatusMessage(`Import failed: ${errorMessage(error)}`);
     } finally {
@@ -798,27 +801,27 @@ export default function WebsiteBookingsOverview() {
       <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Bookings</div>
-            <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Website Booking Import</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Fishing Trips</div>
+            <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Fishing Trip Import</div>
             <div className="mt-3 max-w-3xl text-sm text-slate-500">
-              Import historical fishing bookings from the WordPress export by matching customers to the existing customer database, preserving raw rows, and keeping lodge rows for the next step.
+              Import and review historical fishing trips from the WordPress export. Lodge bookings now live under the Lodge workspace instead of this screen.
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-4 xl:min-w-[680px] xl:max-w-[760px] xl:flex-1">
             <SummaryCard label="Import Runs" value={String(counts.importRuns)} />
-            <SummaryCard label="Raw Rows" value={String(counts.importRows)} />
-            <SummaryCard label="Booking Groups" value={String(counts.bookingGroups)} />
-            <SummaryCard label="Booking Items" value={String(counts.bookingItems)} />
+            <SummaryCard label="Fishing Rows" value={String(counts.fishingRows)} />
+            <SummaryCard label="Fishing Groups" value={String(counts.fishingGroups)} />
+            <SummaryCard label="Fishing Items" value={String(counts.fishingItems)} />
           </div>
         </div>
       </section>
       <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7 space-y-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-lg font-semibold text-slate-900">Historical fishing-booking import</div>
+            <div className="text-lg font-semibold text-slate-900">Historical fishing-trip import</div>
             <div className="mt-2 text-sm text-slate-500">
-              Matching rules: customer by phone, then exact full-name fallback; captain from calendar name; Three Seater rows map to Fincat with no captain; pre-2026 boat links stay blank unless the row is Three Seater.
+              Matching rules: customer by phone, then exact full-name fallback; captain from calendar name; Three Seater rows map to Fincat with no captain; pre-2026 boat links stay blank unless the row is Three Seater. Lodge rows are handled separately under Lodge.
             </div>
           </div>
 
@@ -839,8 +842,8 @@ export default function WebsiteBookingsOverview() {
             ? "Loading existing customers, captains, boats, and trip types..."
             : selectedFileName
               ? `Selected file: ${selectedFileName}`
-              : counts.importRows > 0
-                ? "Showing imported booking rows below. Choose a CSV to preview a fresh re-import."
+              : counts.fishingRows > 0
+                ? "Showing imported fishing rows below. Choose a CSV to preview a fresh re-import."
                 : "Choose a WordPress booking export CSV to preview the historical fishing import."}
         </div>
 
@@ -866,8 +869,8 @@ export default function WebsiteBookingsOverview() {
             <div className="text-lg font-semibold text-slate-900">{previewRows.length > 0 ? "Preview" : "Imported rows"}</div>
             <div className="mt-1 text-sm text-slate-500">
               {previewRows.length > 0
-                ? "Ready and review rows will import as historical fishing bookings. Daybreak lodge rows are preserved in raw import rows and skipped from booking creation for now."
-                : "These rows reflect the latest stored import state. Load a CSV if you want to preview a fresh re-import before applying it."}
+                ? "Ready and review rows will import as historical fishing trips."
+                : "These rows reflect the latest stored fishing-trip import state. Load a CSV if you want to preview a fresh re-import before applying it."}
             </div>
           </div>
           <div className="inline-flex rounded-full bg-[#f2e7cf] px-3 py-1 text-xs font-semibold text-[#8b5e12]">{activeRows.length} rows</div>

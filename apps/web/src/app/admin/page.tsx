@@ -9,8 +9,8 @@ const PRIMARY_ACTIONS: Array<{ href: string; title: string; description: string;
   },
   {
     href: "/admin/bookings",
-    title: "Bookings",
-    description: "Review the booking shell, import history, and incoming website data structure.",
+    title: "Fishing Trips",
+    description: "Import and review historical fishing trips from the website export.",
     tone: "shell",
   },
   {
@@ -29,8 +29,8 @@ const DASHBOARD_ROWS = [
     status: "Live",
   },
   {
-    label: "Bookings Workspace",
-    body: "Website booking shell and upcoming import pipeline.",
+    label: "Fishing Trips",
+    body: "Historical fishing-trip import, review, and reconciliation workspace.",
     href: "/admin/bookings",
     status: "Shell",
   },
@@ -107,7 +107,7 @@ export default function AdminDashboardPage() {
             <ol className="space-y-3 text-sm text-slate-600">
               <SequenceItem index="1" label="Core admin foundation complete" />
               <SequenceItem index="2" label="Customer import complete" />
-              <SequenceItem index="3" label="Website booking import next" />
+              <SequenceItem index="3" label="Fishing and lodge imports in progress" />
               <SequenceItem index="4" label="Review and merge workflow after imports" />
               <SequenceItem index="5" label="Shared activity and day-of operations later" />
             </ol>

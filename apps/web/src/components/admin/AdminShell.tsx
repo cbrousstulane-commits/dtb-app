@@ -14,7 +14,7 @@ type NavItem = {
 
 const PRIMARY_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: GridIcon },
-  { href: "/admin/bookings", label: "Bookings", icon: TicketIcon },
+  { href: "/admin/bookings", label: "Fishing Trips", icon: TicketIcon },
   { href: "/admin/customers", label: "Customers", icon: UsersIcon },
   { href: "/admin/lodge", label: "Lodge", icon: BedIcon },
 ];

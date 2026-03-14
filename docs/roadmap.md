@@ -1,4 +1,4 @@
-﻿# DTB Admin Panel Roadmap
+# DTB Admin Panel Roadmap
 
 ## Product Direction
 

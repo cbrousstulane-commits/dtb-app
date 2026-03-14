@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 export default function AdminBackupRestorePage() {
   return (
@@ -25,9 +25,9 @@ export default function AdminBackupRestorePage() {
             />
             <ActionCard
               href="/admin/bookings"
-              title="Import Trips CSV"
-              description="Use the bookings area for website trip-import work as the importer is completed."
-              status="Shell"
+              title="Import Historical Fishing Bookings CSV"
+              description="Upload the old WordPress export, match fishing bookings to existing customers, and preserve Daybreak lodge rows for the separate lodge import."
+              status="Live"
             />
           </div>
         </Panel>

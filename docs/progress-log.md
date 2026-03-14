@@ -1,4 +1,4 @@
-﻿# DTB App Progress Log
+# DTB App Progress Log
 
 ## 2026-03-11 - Product vision locked for Codex handoff
 
@@ -107,3 +107,15 @@ Added fish master data under Settings and a first captain-facing daily fish catc
 - Added a captain-facing daily report page at /access/daily-reports that stores fish catches with species and subspecies snapshots per captain and date.
 - Linked the access landing page to the new daily-report workflow so captains can start using catch logging without waiting for the full trip-log system.
 
+
+## 2026-03-13 - Historical fishing-booking import pass
+
+### Summary
+Built the first real website-booking import flow around the older WordPress export while keeping lodge rows out of scope for the next step.
+
+### Completed
+- Replaced the bookings shell with a historical fishing-booking CSV preview and apply flow.
+- Added raw booking import-row preservation so every CSV row is stored for audit and future reprocessing.
+- Matched customers by phone first, then exact full-name fallback instead of email.
+- Matched captains from calendar names, mapped Three Seater rows to Fincat with no captain link, and intentionally left most pre-2026 boat links blank.
+- Added future-facing Square deposit reconciliation fields to booking groups without requiring historical payment matching yet.

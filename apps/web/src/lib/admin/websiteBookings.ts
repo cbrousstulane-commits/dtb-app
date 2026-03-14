@@ -1,10 +1,13 @@
 export type BookingSource = "website-csv";
 
 export type BookingImportRunStatus = "pending" | "completed" | "failed";
+export type BookingImportRowType = "fishing" | "lodge" | "unsupported";
+export type BookingImportRowStatus = "ready" | "review" | "skipped" | "failed";
 export type BookingGroupStatus = "active" | "cancelled" | "modified";
 export type BookingItemStatus = "active" | "cancelled" | "modified";
 export type BookingItemType = "trip" | "lodge" | "addon";
 export type CustomerMatchStatus = "matched" | "new" | "review" | "unresolved";
+export type SquareDepositMatchStatus = "not-linked" | "pending" | "matched" | "review";
 
 export type BookingImportRunRecord = {
   source: BookingSource;
@@ -12,11 +15,39 @@ export type BookingImportRunRecord = {
   sourceFileChecksum: string;
   status: BookingImportRunStatus;
   rowCount: number;
+  bookingRowCount: number;
   bookingGroupCount: number;
   bookingItemCount: number;
+  readyCount: number;
+  reviewCount: number;
+  skippedCount: number;
+  failedCount: number;
   startedAt?: unknown;
   completedAt?: unknown;
   notes: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+};
+
+export type BookingImportRowRecord = {
+  source: BookingSource;
+  importRunId: string;
+  sourceRowNumber: number;
+  sourceRowType: BookingImportRowType;
+  rowStatus: BookingImportRowStatus;
+  externalBookingGroupId: string;
+  sourceCalendarId: string;
+  sourceCalendarName: string;
+  bookingStatus: string;
+  customerId: string;
+  customerMatchStatus: CustomerMatchStatus;
+  matchedCaptainId: string;
+  matchedBoatId: string;
+  matchedTripTypeId: string;
+  reviewReason: string;
+  sourceTripLabel: string;
+  sourceGuestCount: string;
+  rawImportReference: string;
   createdAt?: unknown;
   updatedAt?: unknown;
 };
@@ -34,6 +65,15 @@ export type BookingGroupRecord = {
   status: BookingGroupStatus;
   bookingDate: string;
   sourceUpdatedAt: string;
+  termsAccepted: boolean;
+  totalPrice: number;
+  depositPaid: number;
+  remainingPaymentDue: number;
+  squareDepositMatchStatus: SquareDepositMatchStatus;
+  squareDepositPaymentId: string;
+  squareDepositReference: string;
+  squareDepositMatchedAmount: number;
+  squareDepositMatchedAt: string;
   notes: string;
   createdAt?: unknown;
   updatedAt?: unknown;
@@ -48,25 +88,38 @@ export type BookingItemRecord = {
   itemType: BookingItemType;
   sourceProductName: string;
   sourceProductCode: string;
+  sourceCalendarId: string;
+  sourceCalendarName: string;
+  sourceTripLabel: string;
   status: BookingItemStatus;
   startDateTime: string;
   endDateTime: string;
   linkedTripTypeId: string;
+  linkedTripTypeNameSnapshot: string;
   linkedBoatId: string;
+  linkedBoatNameSnapshot: string;
   linkedCaptainId: string;
+  linkedCaptainNameSnapshot: string;
   linkedLodgeRoomId: string;
   quantity: number;
+  guestCount: number;
+  activityPrice: number;
   notes: string;
   createdAt?: unknown;
   updatedAt?: unknown;
 };
 
 export const bookingImportRunsCollectionPath = ["admin", "data", "bookingImportRuns"] as const;
+export const bookingImportRowsCollectionPath = ["admin", "data", "bookingImportRows"] as const;
 export const bookingGroupsCollectionPath = ["admin", "data", "bookingGroups"] as const;
 export const bookingItemsCollectionPath = ["admin", "data", "bookingItems"] as const;
 
 export function bookingImportRunDocPath(importRunId: string) {
   return [...bookingImportRunsCollectionPath, importRunId] as const;
+}
+
+export function bookingImportRowDocPath(importRowId: string) {
+  return [...bookingImportRowsCollectionPath, importRowId] as const;
 }
 
 export function bookingGroupDocPath(bookingGroupId: string) {
@@ -77,6 +130,14 @@ export function bookingItemDocPath(bookingItemId: string) {
   return [...bookingItemsCollectionPath, bookingItemId] as const;
 }
 
+export function websiteBookingGroupDocId(externalBookingGroupId: string) {
+  return `website-booking-${externalBookingGroupId}`;
+}
+
+export function websiteBookingItemDocId(externalBookingGroupId: string, suffix = "trip") {
+  return `website-booking-item-${externalBookingGroupId}-${suffix}`;
+}
+
 export function emptyBookingImportRun(): BookingImportRunRecord {
   return {
     source: "website-csv",
@@ -84,9 +145,37 @@ export function emptyBookingImportRun(): BookingImportRunRecord {
     sourceFileChecksum: "",
     status: "pending",
     rowCount: 0,
+    bookingRowCount: 0,
     bookingGroupCount: 0,
     bookingItemCount: 0,
+    readyCount: 0,
+    reviewCount: 0,
+    skippedCount: 0,
+    failedCount: 0,
     notes: "",
+  };
+}
+
+export function emptyBookingImportRow(): BookingImportRowRecord {
+  return {
+    source: "website-csv",
+    importRunId: "",
+    sourceRowNumber: 0,
+    sourceRowType: "unsupported",
+    rowStatus: "skipped",
+    externalBookingGroupId: "",
+    sourceCalendarId: "",
+    sourceCalendarName: "",
+    bookingStatus: "",
+    customerId: "",
+    customerMatchStatus: "unresolved",
+    matchedCaptainId: "",
+    matchedBoatId: "",
+    matchedTripTypeId: "",
+    reviewReason: "",
+    sourceTripLabel: "",
+    sourceGuestCount: "",
+    rawImportReference: "",
   };
 }
 
@@ -104,6 +193,15 @@ export function emptyBookingGroup(): BookingGroupRecord {
     status: "active",
     bookingDate: "",
     sourceUpdatedAt: "",
+    termsAccepted: false,
+    totalPrice: 0,
+    depositPaid: 0,
+    remainingPaymentDue: 0,
+    squareDepositMatchStatus: "not-linked",
+    squareDepositPaymentId: "",
+    squareDepositReference: "",
+    squareDepositMatchedAmount: 0,
+    squareDepositMatchedAt: "",
     notes: "",
   };
 }
@@ -118,14 +216,22 @@ export function emptyBookingItem(): BookingItemRecord {
     itemType: "trip",
     sourceProductName: "",
     sourceProductCode: "",
+    sourceCalendarId: "",
+    sourceCalendarName: "",
+    sourceTripLabel: "",
     status: "active",
     startDateTime: "",
     endDateTime: "",
     linkedTripTypeId: "",
+    linkedTripTypeNameSnapshot: "",
     linkedBoatId: "",
+    linkedBoatNameSnapshot: "",
     linkedCaptainId: "",
+    linkedCaptainNameSnapshot: "",
     linkedLodgeRoomId: "",
     quantity: 1,
+    guestCount: 0,
+    activityPrice: 0,
     notes: "",
   };
 }

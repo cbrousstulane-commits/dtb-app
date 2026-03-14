@@ -254,7 +254,7 @@ function matchTripType(tripOptions: string[], tripTypes: ExistingTripTypeOption[
 }
 
 function matchCustomer(row: WebsiteBookingCsvRow, customers: ExistingCustomerOption[]) {
-  const byPhone = row.phone ? customers.filter((customer) => normalizePhone(customer.phone) === row.phone) : [];
+  const byPhone = row.phone ? customers.filter((customer) => normalizePhone(customer.phone) === row.phone || customer.additionalPhones.some((phone) => normalizePhone(phone) === row.phone)) : [];
   if (byPhone.length === 1) {
     return { customerId: byPhone[0].id, matchStatus: "matched" as const, reviewReason: "" };
   }

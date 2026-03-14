@@ -7,15 +7,12 @@ import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import {
   CUSTOMERS_CACHE_KEY,
   CUSTOMERS_CACHE_TTL_MS,
+  CustomerListItem,
   CustomerRecord,
   customersCollectionPath,
-  normalizeAdditionalNames,
+  hydrateCustomerRecord,
 } from "@/lib/admin/customers";
 import { db } from "@/lib/firebase/client";
-
-type CustomerListItem = CustomerRecord & {
-  id: string;
-};
 
 type CachedCustomers = {
   fetchedAt: number;
@@ -32,27 +29,6 @@ function errorMessage(error: unknown): string {
   } catch {
     return "Unknown error";
   }
-}
-
-function mapCustomer(docId: string, data: Partial<CustomerRecord>): CustomerListItem {
-  return {
-    id: docId,
-    fullName: data.fullName ?? "",
-    fullNameLower: data.fullNameLower ?? "",
-    additionalNames: normalizeAdditionalNames(data.additionalNames),
-    email: data.email ?? "",
-    phone: data.phone ?? "",
-    source: data.source ?? "manual",
-    squareCustomerId: data.squareCustomerId ?? "",
-    websiteCustomerId: data.websiteCustomerId ?? "",
-    customerMatchStatus: data.customerMatchStatus ?? "unresolved",
-    squareImportLastRunId: data.squareImportLastRunId ?? "",
-    squareImportUpdatedAt: data.squareImportUpdatedAt ?? "",
-    status: data.status === "inactive" ? "inactive" : data.status === "merged" ? "merged" : "active",
-    mergedIntoCustomerId: data.mergedIntoCustomerId ?? "",
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
-  };
 }
 
 function readCachedCustomers(): CustomerListItem[] | null {
@@ -106,7 +82,7 @@ export default function CustomersList() {
         const snapshot = await getDocs(query(collection(db, ...customersCollectionPath), orderBy("fullName")));
         if (cancelled) return;
 
-        const next = snapshot.docs.map((docSnap) => mapCustomer(docSnap.id, docSnap.data() as Partial<CustomerRecord>));
+        const next = snapshot.docs.map((docSnap) => hydrateCustomerRecord(docSnap.id, docSnap.data() as Partial<CustomerRecord>));
         writeCachedCustomers(next);
         setItems(next);
         setError(null);
@@ -137,7 +113,7 @@ export default function CustomersList() {
     if (!searchTerm) return items;
 
     return items.filter((item) => {
-      const haystacks = [item.fullName, item.email, item.phone];
+      const haystacks = [item.fullName, item.email, item.phone, ...item.additionalNames, ...item.additionalEmails, ...item.additionalPhones];
       return haystacks.some((value) => value.toLowerCase().includes(searchTerm));
     });
   }, [items, searchTerm]);
@@ -159,6 +135,13 @@ export default function CustomersList() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <Link
+              href="/admin/customers/merge"
+              className="inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <MergeIcon />
+              Merge Customers
+            </Link>
             <Link
               href="/admin/config"
               className="inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
@@ -311,8 +294,8 @@ function CustomerRow({ item }: { item: CustomerListItem }) {
           </div>
         </Link>
       </td>
-      <td className="px-5 py-4 text-sm text-slate-600 sm:px-6">{item.email || "-"}</td>
-      <td className="px-5 py-4 text-sm text-slate-600 sm:px-6">{item.phone || "-"}</td>
+      <td className="px-5 py-4 text-sm text-slate-600 sm:px-6">{item.email || item.additionalEmails[0] || "-"}</td>
+      <td className="px-5 py-4 text-sm text-slate-600 sm:px-6">{item.phone || item.additionalPhones[0] || "-"}</td>
       <td className="px-5 py-4 sm:px-6">
         <StatusBadge status={item.status} />
       </td>
@@ -350,8 +333,8 @@ function CustomerMobileCard({ item }: { item: CustomerListItem }) {
           </div>
 
           <div className="mt-3 space-y-2 text-sm text-slate-600">
-            <InfoRow label="Email" value={item.email || "-"} />
-            <InfoRow label="Phone" value={item.phone || "-"} />
+            <InfoRow label="Email" value={item.email || item.additionalEmails[0] || "-"} />
+            <InfoRow label="Phone" value={item.phone || item.additionalPhones[0] || "-"} />
           </div>
 
           <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
@@ -477,6 +460,15 @@ function GearIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4.5 w-4.5">
       <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm7.5 3.5-1.9.7a6 6 0 0 1-.5 1.2l.8 1.8-1.7 1.7-1.8-.8a6 6 0 0 1-1.2.5l-.7 1.9h-2.4l-.7-1.9a6 6 0 0 1-1.2-.5l-1.8.8-1.7-1.7.8-1.8a6 6 0 0 1-.5-1.2L4.5 12v-2.4l1.9-.7a6 6 0 0 1 .5-1.2l-.8-1.8 1.7-1.7 1.8.8a6 6 0 0 1 1.2-.5l.7-1.9h2.4l.7 1.9a6 6 0 0 1 1.2.5l1.8-.8 1.7 1.7-.8 1.8c.2.4.4.8.5 1.2l1.9.7Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MergeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4.5 w-4.5">
+      <path d="M8 7h8M8 12h5M8 17h8" strokeLinecap="round" />
+      <path d="M4 7h.01M4 12h.01M4 17h.01" strokeLinecap="round" />
     </svg>
   );
 }

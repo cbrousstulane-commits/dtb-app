@@ -2,17 +2,11 @@
 
 import Link from "next/link";
 import React from "react";
-import {
-  collection,
-  doc,
-  getDocs,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
+import { collection, doc, getDocs, serverTimestamp, writeBatch } from "firebase/firestore";
 
 import { BoatRecord, boatsCollectionPath } from "@/lib/admin/boats";
 import { CaptainRecord, captainsCollectionPath } from "@/lib/admin/captains";
-import { CustomerRecord, customersCollectionPath, normalizeAdditionalNames } from "@/lib/admin/customers";
+import { CustomerRecord, customersCollectionPath, hydrateCustomerRecord } from "@/lib/admin/customers";
 import { TripTypeRecord, tripTypesCollectionPath } from "@/lib/admin/tripTypes";
 import {
   buildWebsiteBookingPreviewRows,
@@ -30,9 +24,9 @@ import {
   bookingImportRunsCollectionPath,
   bookingItemsCollectionPath,
   emptyBookingGroup,
+  emptyBookingImportRow,
   emptyBookingImportRun,
   emptyBookingItem,
-  emptyBookingImportRow,
   websiteBookingGroupDocId,
   websiteBookingItemDocId,
 } from "@/lib/admin/websiteBookings";
@@ -59,10 +53,6 @@ function errorMessage(error: unknown): string {
   } catch {
     return "Unknown error";
   }
-}
-
-function normalizeKey(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function slugifySourceCode(value: string): string {
@@ -107,27 +97,7 @@ async function loadCounts(): Promise<Counts> {
 
 async function loadCustomers(): Promise<ExistingCustomerOption[]> {
   const snapshot = await getDocs(collection(db, ...customersCollectionPath));
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data() as Partial<CustomerRecord>;
-    return {
-      id: docSnap.id,
-      fullName: data.fullName ?? "",
-      fullNameLower: data.fullNameLower ?? "",
-      additionalNames: normalizeAdditionalNames(data.additionalNames),
-      email: data.email ?? "",
-      phone: data.phone ?? "",
-      source: data.source ?? "manual",
-      squareCustomerId: data.squareCustomerId ?? "",
-      websiteCustomerId: data.websiteCustomerId ?? "",
-      customerMatchStatus: data.customerMatchStatus ?? "unresolved",
-      squareImportLastRunId: data.squareImportLastRunId ?? "",
-      squareImportUpdatedAt: data.squareImportUpdatedAt ?? "",
-      status: data.status === "inactive" ? "inactive" : data.status === "merged" ? "merged" : "active",
-      mergedIntoCustomerId: data.mergedIntoCustomerId ?? "",
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
-    };
-  });
+  return snapshot.docs.map((docSnap) => hydrateCustomerRecord(docSnap.id, docSnap.data() as Partial<CustomerRecord>));
 }
 
 async function loadCaptains(): Promise<ExistingCaptainOption[]> {
@@ -186,12 +156,7 @@ async function loadTripTypes(): Promise<ExistingTripTypeOption[]> {
 }
 
 export default function WebsiteBookingsOverview() {
-  const [counts, setCounts] = React.useState<Counts>({
-    importRuns: 0,
-    importRows: 0,
-    bookingGroups: 0,
-    bookingItems: 0,
-  });
+  const [counts, setCounts] = React.useState<Counts>({ importRuns: 0, importRows: 0, bookingGroups: 0, bookingItems: 0 });
   const [loadingShell, setLoadingShell] = React.useState(true);
   const [shellError, setShellError] = React.useState<string | null>(null);
   const [loadingContext, setLoadingContext] = React.useState(true);
@@ -249,8 +214,7 @@ export default function WebsiteBookingsOverview() {
   const previewCounts = React.useMemo(() => summarize(previewRows), [previewRows]);
 
   async function refreshShellCounts() {
-    const nextCounts = await loadCounts();
-    setCounts(nextCounts);
+    setCounts(await loadCounts());
   }
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {

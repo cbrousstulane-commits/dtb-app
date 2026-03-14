@@ -14,7 +14,9 @@ export type CustomerRecord = {
   fullNameLower: string;
   additionalNames: string[];
   email: string;
+  additionalEmails: string[];
   phone: string;
+  additionalPhones: string[];
   source: CustomerSource;
   squareCustomerId: string;
   websiteCustomerId: string;
@@ -26,6 +28,8 @@ export type CustomerRecord = {
   createdAt?: unknown;
   updatedAt?: unknown;
 };
+
+export type CustomerListItem = CustomerRecord & { id: string };
 
 export const customersCollectionPath = ["admin", "data", "customers"] as const;
 export const CUSTOMERS_CACHE_KEY = "dtb-admin-customers-v1";
@@ -49,11 +53,22 @@ export function emptyCustomerForm(): CustomerFormValues {
   };
 }
 
-export function normalizePhone(value: string): string {
-  return value.trim();
+export function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
 }
 
-export function normalizeAdditionalNames(value: unknown): string[] {
+export function normalizePhone(value: string): string {
+  const digits = value.replace(/\D+/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return digits.slice(1);
+  }
+  return digits;
+}
+
+function normalizeStringArray(
+  value: unknown,
+  normalizeItem: (value: string) => string = (item) => item.trim(),
+): string[] {
   if (!Array.isArray(value)) return [];
 
   const seen = new Set<string>();
@@ -61,16 +76,28 @@ export function normalizeAdditionalNames(value: unknown): string[] {
 
   for (const item of value) {
     if (typeof item !== "string") continue;
-    const trimmed = item.trim();
-    if (!trimmed) continue;
+    const normalized = normalizeItem(item);
+    if (!normalized) continue;
 
-    const key = trimmed.toLowerCase();
+    const key = normalized.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    next.push(trimmed);
+    next.push(normalized);
   }
 
   return next;
+}
+
+export function normalizeAdditionalNames(value: unknown): string[] {
+  return normalizeStringArray(value, (item) => item.trim());
+}
+
+export function normalizeAdditionalEmails(value: unknown): string[] {
+  return normalizeStringArray(value, normalizeEmail);
+}
+
+export function normalizeAdditionalPhones(value: unknown): string[] {
+  return normalizeStringArray(value, normalizePhone);
 }
 
 export function appendAdditionalName(existingNames: string[], fullName: string): string[] {
@@ -89,6 +116,53 @@ export function appendAdditionalName(existingNames: string[], fullName: string):
   return next;
 }
 
+export function appendAdditionalEmail(existingEmails: string[], email: string): string[] {
+  const next = normalizeAdditionalEmails(existingEmails);
+  const normalized = normalizeEmail(email);
+
+  if (!normalized) return next;
+  if (!next.includes(normalized)) {
+    next.push(normalized);
+  }
+
+  return next;
+}
+
+export function appendAdditionalPhone(existingPhones: string[], phone: string): string[] {
+  const next = normalizeAdditionalPhones(existingPhones);
+  const normalized = normalizePhone(phone);
+
+  if (!normalized) return next;
+  if (!next.includes(normalized)) {
+    next.push(normalized);
+  }
+
+  return next;
+}
+
+export function hydrateCustomerRecord(docId: string, data: Partial<CustomerRecord>): CustomerListItem {
+  return {
+    id: docId,
+    fullName: data.fullName ?? "",
+    fullNameLower: data.fullNameLower ?? "",
+    additionalNames: normalizeAdditionalNames(data.additionalNames),
+    email: normalizeEmail(data.email ?? ""),
+    additionalEmails: normalizeAdditionalEmails(data.additionalEmails),
+    phone: normalizePhone(data.phone ?? ""),
+    additionalPhones: normalizeAdditionalPhones(data.additionalPhones),
+    source: data.source ?? "manual",
+    squareCustomerId: data.squareCustomerId ?? "",
+    websiteCustomerId: data.websiteCustomerId ?? "",
+    customerMatchStatus: data.customerMatchStatus ?? "unresolved",
+    squareImportLastRunId: data.squareImportLastRunId ?? "",
+    squareImportUpdatedAt: data.squareImportUpdatedAt ?? "",
+    status: data.status === "inactive" ? "inactive" : data.status === "merged" ? "merged" : "active",
+    mergedIntoCustomerId: data.mergedIntoCustomerId ?? "",
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  };
+}
+
 export function normalizeCustomerPayload(
   values: CustomerFormValues,
   existing?: Partial<CustomerRecord> | null,
@@ -99,8 +173,10 @@ export function normalizeCustomerPayload(
     fullName,
     fullNameLower: fullName.toLowerCase(),
     additionalNames: normalizeAdditionalNames(existing?.additionalNames),
-    email: values.email.trim().toLowerCase(),
+    email: normalizeEmail(values.email),
+    additionalEmails: normalizeAdditionalEmails(existing?.additionalEmails),
     phone: normalizePhone(values.phone),
+    additionalPhones: normalizeAdditionalPhones(existing?.additionalPhones),
     source: existing?.source ?? "manual",
     squareCustomerId: existing?.squareCustomerId ?? "",
     websiteCustomerId: existing?.websiteCustomerId ?? "",

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import React from "react";
@@ -7,31 +7,33 @@ import {
   doc,
   getDocs,
   serverTimestamp,
-  setDoc,
   writeBatch,
 } from "firebase/firestore";
 
 import {
+  appendAdditionalEmail,
   appendAdditionalName,
+  appendAdditionalPhone,
   clearCustomersCache,
+  CustomerListItem,
   CustomerRecord,
   customersCollectionPath,
+  hydrateCustomerRecord,
+  normalizeAdditionalEmails,
   normalizeAdditionalNames,
+  normalizeAdditionalPhones,
 } from "@/lib/admin/customers";
 import {
   buildSquarePreviewRows,
   emptySquareCustomerImportRun,
   parseSquareCustomerCsv,
-  rowFullName,
   squareCustomerImportRowsCollectionPath,
   squareCustomerImportRunsCollectionPath,
   SquareCustomerPreviewRow,
 } from "@/lib/admin/squareCustomers";
 import { db } from "@/lib/firebase/client";
 
-type ExistingCustomer = CustomerRecord & {
-  id: string;
-};
+type ExistingCustomer = CustomerListItem;
 
 type PreviewCounts = {
   matched: number;
@@ -73,27 +75,7 @@ async function sha256(text: string) {
 
 async function loadCustomers(): Promise<ExistingCustomer[]> {
   const snapshot = await getDocs(collection(db, ...customersCollectionPath));
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data() as Partial<CustomerRecord>;
-    return {
-      id: docSnap.id,
-      fullName: data.fullName ?? "",
-      fullNameLower: data.fullNameLower ?? "",
-      additionalNames: normalizeAdditionalNames(data.additionalNames),
-      email: data.email ?? "",
-      phone: data.phone ?? "",
-      source: data.source ?? "manual",
-      squareCustomerId: data.squareCustomerId ?? "",
-      websiteCustomerId: data.websiteCustomerId ?? "",
-      customerMatchStatus: data.customerMatchStatus ?? "unresolved",
-      squareImportLastRunId: data.squareImportLastRunId ?? "",
-      squareImportUpdatedAt: data.squareImportUpdatedAt ?? "",
-      status: data.status === "inactive" ? "inactive" : data.status === "merged" ? "merged" : "active",
-      mergedIntoCustomerId: data.mergedIntoCustomerId ?? "",
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
-    };
-  });
+  return snapshot.docs.map((docSnap) => hydrateCustomerRecord(docSnap.id, docSnap.data() as Partial<CustomerRecord>));
 }
 
 export default function SquareCustomerImportPage() {
@@ -228,6 +210,12 @@ export default function SquareCustomerImportPage() {
             (names, name) => appendAdditionalName(names, name),
             normalizeAdditionalNames(existing.additionalNames),
           );
+          const updatedAdditionalEmails = preview.email && preview.email !== existing.email
+            ? appendAdditionalEmail(normalizeAdditionalEmails(existing.additionalEmails), preview.email)
+            : normalizeAdditionalEmails(existing.additionalEmails);
+          const updatedAdditionalPhones = preview.phone && preview.phone !== existing.phone
+            ? appendAdditionalPhone(normalizeAdditionalPhones(existing.additionalPhones), preview.phone)
+            : normalizeAdditionalPhones(existing.additionalPhones);
 
           instructions.push({
             ref: doc(db, ...customersCollectionPath, preview.matchedCustomerId),
@@ -236,7 +224,9 @@ export default function SquareCustomerImportPage() {
               fullNameLower: (existing.fullName || preview.fullName).toLowerCase(),
               additionalNames: updatedAdditionalNames,
               email: existing.email || preview.email,
+              additionalEmails: updatedAdditionalEmails,
               phone: existing.phone || preview.phone,
+              additionalPhones: updatedAdditionalPhones,
               source: existing.source === "manual" ? "square-import" : existing.source,
               squareCustomerId: existing.squareCustomerId || preview.squareCustomerId,
               customerMatchStatus: "matched",
@@ -258,7 +248,9 @@ export default function SquareCustomerImportPage() {
               fullNameLower: preview.fullName.toLowerCase(),
               additionalNames: preview.additionalNames,
               email: preview.email,
+              additionalEmails: [],
               phone: preview.phone,
+              additionalPhones: [],
               source: "square-import",
               squareCustomerId: preview.squareCustomerId,
               websiteCustomerId: "",
@@ -403,7 +395,3 @@ function PreviewRow(props: { row: SquareCustomerPreviewRow }) {
 function Pill(props: { label: string }) {
   return <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">{props.label}</span>;
 }
-
-
-
-

@@ -2,7 +2,9 @@ import {
   appendAdditionalName,
   CustomerMatchStatus,
   CustomerRecord,
+  normalizeAdditionalEmails,
   normalizeAdditionalNames,
+  normalizeAdditionalPhones,
   normalizePhone,
 } from "@/lib/admin/customers";
 
@@ -268,15 +270,17 @@ export function buildSquarePreviewRows(
       next.push(customer);
       bySquareId.set(customer.squareCustomerId, next);
     }
-    if (customer.email) {
-      const next = byEmail.get(customer.email) ?? [];
+    for (const email of [customer.email, ...normalizeAdditionalEmails(customer.additionalEmails)]) {
+      if (!email) continue;
+      const next = byEmail.get(email) ?? [];
       next.push(customer);
-      byEmail.set(customer.email, next);
+      byEmail.set(email, next);
     }
-    if (customer.phone) {
-      const next = byPhone.get(customer.phone) ?? [];
+    for (const phone of [customer.phone, ...normalizeAdditionalPhones(customer.additionalPhones)]) {
+      if (!phone) continue;
+      const next = byPhone.get(phone) ?? [];
       next.push(customer);
-      byPhone.set(customer.phone, next);
+      byPhone.set(phone, next);
     }
     const lastName = lastNameKey(customer.fullName.split(" ").slice(-1)[0] ?? "");
     if (lastName) {

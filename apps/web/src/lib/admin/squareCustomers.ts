@@ -2,6 +2,8 @@ import {
   appendAdditionalName,
   CustomerMatchStatus,
   CustomerRecord,
+  isBlockedCustomerEmail,
+  isBlockedCustomerPhone,
   normalizeAdditionalEmails,
   normalizeAdditionalNames,
   normalizeAdditionalPhones,
@@ -124,11 +126,13 @@ export function emptySquareCustomerImportRow(): SquareCustomerImportRowRecord {
 }
 
 export function normalizeSquareEmail(value: string) {
-  return value.trim().toLowerCase();
+  const normalized = value.trim().toLowerCase();
+  return isBlockedCustomerEmail(normalized) ? "" : normalized;
 }
 
 export function normalizeSquarePhone(value: string) {
-  return normalizePhone(value.replace(/^'+/, "").trim());
+  const normalized = normalizePhone(value.replace(/^'+/, "").trim());
+  return isBlockedCustomerPhone(normalized) ? "" : normalized;
 }
 
 export function buildSquareFullName(row: Pick<SquareCustomerCsvRow, "firstName" | "lastName">) {

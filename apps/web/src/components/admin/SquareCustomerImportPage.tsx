@@ -22,6 +22,8 @@ import {
   normalizeAdditionalEmails,
   normalizeAdditionalNames,
   normalizeAdditionalPhones,
+  sanitizeCustomerEmailFields,
+  sanitizeCustomerPhoneFields,
 } from "@/lib/admin/customers";
 import {
   buildSquarePreviewRows,
@@ -216,6 +218,8 @@ export default function SquareCustomerImportPage() {
           const updatedAdditionalPhones = preview.phone && preview.phone !== existing.phone
             ? appendAdditionalPhone(normalizeAdditionalPhones(existing.additionalPhones), preview.phone)
             : normalizeAdditionalPhones(existing.additionalPhones);
+          const emailFields = sanitizeCustomerEmailFields(existing.email || preview.email, updatedAdditionalEmails);
+          const phoneFields = sanitizeCustomerPhoneFields(existing.phone || preview.phone, updatedAdditionalPhones);
 
           instructions.push({
             ref: doc(db, ...customersCollectionPath, preview.matchedCustomerId),
@@ -223,10 +227,10 @@ export default function SquareCustomerImportPage() {
               fullName: existing.fullName || preview.fullName,
               fullNameLower: (existing.fullName || preview.fullName).toLowerCase(),
               additionalNames: updatedAdditionalNames,
-              email: existing.email || preview.email,
-              additionalEmails: updatedAdditionalEmails,
-              phone: existing.phone || preview.phone,
-              additionalPhones: updatedAdditionalPhones,
+              email: emailFields.email,
+              additionalEmails: emailFields.additionalEmails,
+              phone: phoneFields.phone,
+              additionalPhones: phoneFields.additionalPhones,
               source: existing.source === "manual" ? "square-import" : existing.source,
               squareCustomerId: existing.squareCustomerId || preview.squareCustomerId,
               customerMatchStatus: "matched",
@@ -241,16 +245,18 @@ export default function SquareCustomerImportPage() {
 
         if (preview.rowStatus === "created") {
           const customerRef = doc(collection(db, ...customersCollectionPath));
+          const emailFields = sanitizeCustomerEmailFields(preview.email, []);
+          const phoneFields = sanitizeCustomerPhoneFields(preview.phone, []);
           instructions.push({
             ref: customerRef,
             data: {
               fullName: preview.fullName,
               fullNameLower: preview.fullName.toLowerCase(),
               additionalNames: preview.additionalNames,
-              email: preview.email,
-              additionalEmails: [],
-              phone: preview.phone,
-              additionalPhones: [],
+              email: emailFields.email,
+              additionalEmails: emailFields.additionalEmails,
+              phone: phoneFields.phone,
+              additionalPhones: phoneFields.additionalPhones,
               source: "square-import",
               squareCustomerId: preview.squareCustomerId,
               websiteCustomerId: "",

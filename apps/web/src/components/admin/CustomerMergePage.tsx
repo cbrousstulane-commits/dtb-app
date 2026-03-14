@@ -18,6 +18,8 @@ import {
   normalizeAdditionalNames,
   normalizeAdditionalPhones,
   normalizeMergeIgnoreKeys,
+  sanitizeCustomerEmailFields,
+  sanitizeCustomerPhoneFields,
 } from "@/lib/admin/customers";
 import { db } from "@/lib/firebase/client";
 
@@ -94,6 +96,7 @@ export default function CustomerMergePage() {
   const [customers, setCustomers] = React.useState<CustomerListItem[]>([]);
   const [primaryByGroup, setPrimaryByGroup] = React.useState<Record<string, string>>({});
   const [processingGroupKey, setProcessingGroupKey] = React.useState<string | null>(null);
+  const [purgingContacts, setPurgingContacts] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -213,8 +216,12 @@ export default function CustomerMergePage() {
         if (status !== "active" && other.status === "active") status = "active";
       }
 
-      additionalEmails = additionalEmails.filter((value) => value !== email);
-      additionalPhones = additionalPhones.filter((value) => value !== phone);
+      const emailFields = sanitizeCustomerEmailFields(email, additionalEmails);
+      const phoneFields = sanitizeCustomerPhoneFields(phone, additionalPhones);
+      email = emailFields.email;
+      additionalEmails = emailFields.additionalEmails;
+      phone = phoneFields.phone;
+      additionalPhones = phoneFields.additionalPhones;
       additionalNames = additionalNames.filter((value) => normalizeKey(value) !== normalizeKey(fullName));
 
       const mergedCustomerStatus = chooseMatchStatus([primary, ...others]);
@@ -297,6 +304,39 @@ export default function CustomerMergePage() {
     }
   }
 
+  async function purgeBlockedContacts() {
+    setPurgingContacts(true);
+    setStatusMessage(null);
+
+    try {
+      const chunkSize = 350;
+      for (let index = 0; index < customers.length; index += chunkSize) {
+        const batch = writeBatch(db);
+        for (const customer of customers.slice(index, index + chunkSize)) {
+          batch.set(
+            doc(db, ...customerDocPath(customer.id)),
+            {
+              email: customer.email,
+              additionalEmails: customer.additionalEmails,
+              phone: customer.phone,
+              additionalPhones: customer.additionalPhones,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true },
+          );
+        }
+        await batch.commit();
+      }
+
+      clearCustomersCache();
+      setStatusMessage("Purged blocked captain email and phone values from current customer records.");
+    } catch (purgeError) {
+      setStatusMessage(`Purge failed: ${errorMessage(purgeError)}`);
+    } finally {
+      setPurgingContacts(false);
+    }
+  }
+
   async function ignoreGroup(group: DuplicateGroup) {
     const groupCustomers = group.customerIds
       .map((id) => customers.find((customer) => customer.id === id))
@@ -357,6 +397,14 @@ export default function CustomerMergePage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={purgeBlockedContacts}
+              disabled={purgingContacts || loading}
+              className="inline-flex h-12 items-center rounded-2xl border border-amber-200 bg-amber-50 px-5 text-sm font-semibold text-amber-900 shadow-sm transition hover:border-amber-300 hover:bg-amber-100 disabled:opacity-60"
+            >
+              {purgingContacts ? "Purging..." : "Purge Captain Contacts"}
+            </button>
             <Link href="/admin/customers" className="inline-flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
               Back To Customers
             </Link>

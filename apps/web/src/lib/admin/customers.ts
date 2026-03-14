@@ -35,6 +35,11 @@ export type CustomerListItem = CustomerRecord & { id: string };
 export const customersCollectionPath = ["admin", "data", "customers"] as const;
 export const CUSTOMERS_CACHE_KEY = "dtb-admin-customers-v1";
 export const CUSTOMERS_CACHE_TTL_MS = 5 * 60 * 1000;
+export const BLOCKED_CUSTOMER_EMAILS = ["joeymaciasz22@gmail.com", "owenbelknap@gmail.com"] as const;
+export const BLOCKED_CUSTOMER_PHONES = ["2256504039", "3189572339"] as const;
+
+const BLOCKED_CUSTOMER_EMAIL_SET: ReadonlySet<string> = new Set(BLOCKED_CUSTOMER_EMAILS);
+const BLOCKED_CUSTOMER_PHONE_SET: ReadonlySet<string> = new Set(BLOCKED_CUSTOMER_PHONES);
 
 export function clearCustomersCache() {
   if (typeof window === "undefined") return;
@@ -66,6 +71,14 @@ export function normalizePhone(value: string): string {
   return digits;
 }
 
+export function isBlockedCustomerEmail(value: string): boolean {
+  return BLOCKED_CUSTOMER_EMAIL_SET.has(normalizeEmail(value));
+}
+
+export function isBlockedCustomerPhone(value: string): boolean {
+  return BLOCKED_CUSTOMER_PHONE_SET.has(normalizePhone(value));
+}
+
 function normalizeStringArray(
   value: unknown,
   normalizeItem: (value: string) => string = (item) => item.trim(),
@@ -94,15 +107,51 @@ export function normalizeAdditionalNames(value: unknown): string[] {
 }
 
 export function normalizeAdditionalEmails(value: unknown): string[] {
-  return normalizeStringArray(value, normalizeEmail);
+  return normalizeStringArray(value, normalizeEmail).filter((item) => !isBlockedCustomerEmail(item));
 }
 
 export function normalizeAdditionalPhones(value: unknown): string[] {
-  return normalizeStringArray(value, normalizePhone);
+  return normalizeStringArray(value, normalizePhone).filter((item) => !isBlockedCustomerPhone(item));
 }
 
 export function normalizeMergeIgnoreKeys(value: unknown): string[] {
   return normalizeStringArray(value, (item) => item.trim().toLowerCase());
+}
+
+export function sanitizeCustomerEmailFields(primaryValue: string, additionalValues: unknown) {
+  let email = normalizeEmail(primaryValue);
+  let additionalEmails = normalizeAdditionalEmails(additionalValues);
+
+  if (isBlockedCustomerEmail(email)) {
+    email = "";
+  }
+
+  additionalEmails = additionalEmails.filter((value) => value !== email);
+
+  if (!email && additionalEmails.length > 0) {
+    email = additionalEmails[0];
+    additionalEmails = additionalEmails.slice(1);
+  }
+
+  return { email, additionalEmails };
+}
+
+export function sanitizeCustomerPhoneFields(primaryValue: string, additionalValues: unknown) {
+  let phone = normalizePhone(primaryValue);
+  let additionalPhones = normalizeAdditionalPhones(additionalValues);
+
+  if (isBlockedCustomerPhone(phone)) {
+    phone = "";
+  }
+
+  additionalPhones = additionalPhones.filter((value) => value !== phone);
+
+  if (!phone && additionalPhones.length > 0) {
+    phone = additionalPhones[0];
+    additionalPhones = additionalPhones.slice(1);
+  }
+
+  return { phone, additionalPhones };
 }
 
 export function appendAdditionalName(existingNames: string[], fullName: string): string[] {
@@ -125,7 +174,7 @@ export function appendAdditionalEmail(existingEmails: string[], email: string): 
   const next = normalizeAdditionalEmails(existingEmails);
   const normalized = normalizeEmail(email);
 
-  if (!normalized) return next;
+  if (!normalized || isBlockedCustomerEmail(normalized)) return next;
   if (!next.includes(normalized)) {
     next.push(normalized);
   }
@@ -137,7 +186,7 @@ export function appendAdditionalPhone(existingPhones: string[], phone: string): 
   const next = normalizeAdditionalPhones(existingPhones);
   const normalized = normalizePhone(phone);
 
-  if (!normalized) return next;
+  if (!normalized || isBlockedCustomerPhone(normalized)) return next;
   if (!next.includes(normalized)) {
     next.push(normalized);
   }
@@ -146,15 +195,18 @@ export function appendAdditionalPhone(existingPhones: string[], phone: string): 
 }
 
 export function hydrateCustomerRecord(docId: string, data: Partial<CustomerRecord>): CustomerListItem {
+  const emailFields = sanitizeCustomerEmailFields(data.email ?? "", data.additionalEmails);
+  const phoneFields = sanitizeCustomerPhoneFields(data.phone ?? "", data.additionalPhones);
+
   return {
     id: docId,
     fullName: data.fullName ?? "",
     fullNameLower: data.fullNameLower ?? "",
     additionalNames: normalizeAdditionalNames(data.additionalNames),
-    email: normalizeEmail(data.email ?? ""),
-    additionalEmails: normalizeAdditionalEmails(data.additionalEmails),
-    phone: normalizePhone(data.phone ?? ""),
-    additionalPhones: normalizeAdditionalPhones(data.additionalPhones),
+    email: emailFields.email,
+    additionalEmails: emailFields.additionalEmails,
+    phone: phoneFields.phone,
+    additionalPhones: phoneFields.additionalPhones,
     mergeIgnoreKeys: normalizeMergeIgnoreKeys(data.mergeIgnoreKeys),
     source: data.source ?? "manual",
     squareCustomerId: data.squareCustomerId ?? "",
@@ -174,15 +226,17 @@ export function normalizeCustomerPayload(
   existing?: Partial<CustomerRecord> | null,
 ): CustomerRecord {
   const fullName = values.fullName.trim();
+  const emailFields = sanitizeCustomerEmailFields(values.email, existing?.additionalEmails);
+  const phoneFields = sanitizeCustomerPhoneFields(values.phone, existing?.additionalPhones);
 
   return {
     fullName,
     fullNameLower: fullName.toLowerCase(),
     additionalNames: normalizeAdditionalNames(existing?.additionalNames),
-    email: normalizeEmail(values.email),
-    additionalEmails: normalizeAdditionalEmails(existing?.additionalEmails),
-    phone: normalizePhone(values.phone),
-    additionalPhones: normalizeAdditionalPhones(existing?.additionalPhones),
+    email: emailFields.email,
+    additionalEmails: emailFields.additionalEmails,
+    phone: phoneFields.phone,
+    additionalPhones: phoneFields.additionalPhones,
     mergeIgnoreKeys: normalizeMergeIgnoreKeys(existing?.mergeIgnoreKeys),
     source: existing?.source ?? "manual",
     squareCustomerId: existing?.squareCustomerId ?? "",

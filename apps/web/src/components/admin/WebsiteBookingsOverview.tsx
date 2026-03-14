@@ -146,7 +146,8 @@ function timestampMillis(value: unknown): number {
   if (typeof maybeTimestamp.toMillis === "function") return maybeTimestamp.toMillis();
   if (typeof maybeTimestamp.seconds === "number") {
     const nanos = typeof maybeTimestamp.nanoseconds === "number" ? maybeTimestamp.nanoseconds : 0;
-    return (maybeTimestamp.seconds * 1000) + Math.floor(nanos / 1_000_000);
+  
+  return (maybeTimestamp.seconds * 1000) + Math.floor(nanos / 1_000_000);
   }
   return 0;
 }
@@ -248,12 +249,17 @@ function toStoredPreviewRow(
     tripOptions: sourceTripLabel ? [sourceTripLabel] : [],
     rowType: record.sourceRowType,
   };
+
+  const reviewReason = record.rowStatus === "resolved"
+    ? (record.resolutionNote || "Resolved manually in admin.")
+    : record.reviewReason;
+
   return {
     sourceRowNumber: record.sourceRowNumber,
     externalBookingGroupId: record.externalBookingGroupId,
     rowType: record.sourceRowType,
     rowStatus: record.rowStatus,
-    reviewReason: record.reviewReason,
+    reviewReason,
     bookingStatus: record.bookingStatus === "cancelled" || record.bookingStatus === "modified" ? record.bookingStatus : "active",
     customerId: record.customerId,
     customerMatchStatus: record.customerMatchStatus,
@@ -424,6 +430,45 @@ export default function WebsiteBookingsOverview() {
       cancelled = true;
     };
   }, [refreshShellData]);
+
+  async function handleResolveRow(row: WebsiteBookingPreviewRow) {
+    if (previewRows.length > 0 || row.rowStatus !== "review") {
+      return;
+    }
+
+    try {
+      const importRowId = websiteBookingImportRowDocId(row.externalBookingGroupId, row.rowType);
+      const groupId = websiteBookingGroupDocId(row.externalBookingGroupId);
+      const itemId = websiteBookingItemDocId(row.externalBookingGroupId, "trip");
+      const resolutionNote = row.reviewReason || "Resolved manually in admin.";
+      const batch = writeBatch(db);
+
+      batch.set(doc(db, ...bookingImportRowDocPath(importRowId)), {
+        rowStatus: "resolved",
+        resolutionNote,
+        resolvedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+
+      if (row.rowType === "fishing") {
+        batch.set(doc(db, ...bookingGroupDocPath(groupId)), {
+          notes: "",
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+
+        batch.set(doc(db, ...bookingItemsCollectionPath, itemId), {
+          notes: "",
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      await batch.commit();
+      await refreshShellData();
+      setStatusMessage(`Resolved booking ${row.externalBookingGroupId}.`);
+    } catch (error) {
+      setStatusMessage(`Failed to resolve booking ${row.externalBookingGroupId}: ${errorMessage(error)}`);
+    }
+  }
 
   const persistedRows = React.useMemo(
     () => sortPreviewRows(storedImportRows.map((row) => toStoredPreviewRow(row, { customers, captains, boats, tripTypes }))),
@@ -663,6 +708,7 @@ export default function WebsiteBookingsOverview() {
     }
   }
 
+
   return (
     <div className="space-y-6 lg:space-y-8">
       <section className="rounded-[32px] bg-[#f8fafc] px-5 py-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/80 sm:px-6 lg:px-8 lg:py-7">
@@ -757,7 +803,7 @@ export default function WebsiteBookingsOverview() {
           {activeRows.length === 0 ? (
             <div className="px-5 py-6 text-sm text-slate-500 sm:px-6 lg:px-8">No imported or preview rows yet.</div>
           ) : (
-            activeRows.slice(0, 80).map((row) => <PreviewRow key={`${row.externalBookingGroupId}-${row.rowType}-${row.sourceRowNumber}`} row={row} />)
+            activeRows.slice(0, 80).map((row) => <PreviewRow key={`${row.externalBookingGroupId}-${row.rowType}-${row.sourceRowNumber}`} row={row} canResolve={previewRows.length === 0} onResolve={handleResolveRow} />)
           )}
         </div>
 
@@ -768,6 +814,7 @@ export default function WebsiteBookingsOverview() {
 }
 
 function SummaryCard(props: { label: string; value: string }) {
+
   return (
     <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{props.label}</div>
@@ -776,18 +823,30 @@ function SummaryCard(props: { label: string; value: string }) {
   );
 }
 
-function PreviewRow(props: { row: WebsiteBookingPreviewRow }) {
+function PreviewRow(props: { row: WebsiteBookingPreviewRow; canResolve: boolean; onResolve: (row: WebsiteBookingPreviewRow) => void | Promise<void> }) {
   const tone = props.row.rowStatus === "ready"
     ? "bg-emerald-100 text-emerald-700"
     : props.row.rowStatus === "review"
       ? "bg-amber-100 text-amber-700"
-      : "bg-slate-100 text-slate-700";
+      : props.row.rowStatus === "resolved"
+        ? "bg-sky-100 text-sky-700"
+        : "bg-slate-100 text-slate-700";
+
 
   return (
     <div className="grid gap-3 border-b border-slate-200 px-5 py-4 transition hover:bg-slate-50 md:grid-cols-[110px_110px_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_110px_110px] md:items-start sm:px-6 lg:px-8">
       <div>
         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>{props.row.rowStatus}</span>
         <div className="mt-2 text-xs text-slate-500">{props.row.rowType}</div>
+        {props.canResolve && props.row.rowStatus === "review" ? (
+          <button
+            type="button"
+            onClick={() => void props.onResolve(props.row)}
+            className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            Resolve
+          </button>
+        ) : null}
       </div>
       <div>
         <div className="text-sm font-semibold text-slate-900">{props.row.externalBookingGroupId}</div>

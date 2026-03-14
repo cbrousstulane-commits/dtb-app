@@ -2,7 +2,7 @@ export type BookingSource = "website-csv";
 
 export type BookingImportRunStatus = "pending" | "completed" | "failed";
 export type BookingImportRowType = "fishing" | "lodge" | "unsupported";
-export type BookingImportRowStatus = "ready" | "review" | "skipped" | "failed";
+export type BookingImportRowStatus = "ready" | "review" | "resolved" | "skipped" | "failed";
 export type BookingGroupStatus = "active" | "cancelled" | "modified";
 export type BookingItemStatus = "active" | "cancelled" | "modified";
 export type BookingItemType = "trip" | "lodge" | "addon";
@@ -51,6 +51,8 @@ export type BookingImportRowRecord = {
   matchedTripTypeId: string;
   matchedTripTypeNameSnapshot: string;
   reviewReason: string;
+  resolutionNote: string;
+  resolvedAt?: unknown;
   sourceTripLabel: string;
   sourceGuestCount: string;
   startDate: string;
@@ -196,6 +198,7 @@ export function emptyBookingImportRow(): BookingImportRowRecord {
     matchedTripTypeId: "",
     matchedTripTypeNameSnapshot: "",
     reviewReason: "",
+    resolutionNote: "",
     sourceTripLabel: "",
     sourceGuestCount: "",
     startDate: "",
